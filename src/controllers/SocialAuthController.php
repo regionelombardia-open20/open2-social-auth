@@ -148,6 +148,16 @@ class SocialAuthController extends BackendController
      */
     public function actionSignIn($provider)
     {
+
+        $urlToRedirect = Yii::$app->getUser()->getReturnUrl('');
+        $community_id = \Yii::$app->request->get('community');
+
+        if(strpos($urlToRedirect,'community/join') > 0 ){
+            $urlToCommunity =  \Yii::$app->getUrlManager()->createUrl($urlToRedirect);
+        }else {
+            $urlToCommunity = \Yii::$app->getUrlManager()->createUrl(['/community/join', 'id' => $community_id, 'subscribe' => 1]);
+        }
+
         //Spid requirements
         if ($provider == 'spid' && !\Yii::$app->request->get('signed')) {
             return \Yii::$app->controller->redirect(Url::to(['/socialauth/spid/aslogin',
@@ -227,6 +237,10 @@ class SocialAuthController extends BackendController
                 // if google contact service enabled reload in session some contact data by google account
                 AmosAdmin::fetchGoogleContacts();
 
+                if($community_id){
+                    return $this->redirect($urlToCommunity);
+                }
+
                 return $this->goBack();
             } else {
                 Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to Login with this User'));
@@ -257,6 +271,9 @@ class SocialAuthController extends BackendController
                     AmosAdmin::fetchGoogleContacts();
 
                     //Back to home
+                    if($community_id){
+                        return $this->redirect($urlToCommunity);
+                    }
                     return $this->goHome();
                 }
             } else {
@@ -275,6 +292,9 @@ class SocialAuthController extends BackendController
      */
     public function actionSignUp($provider)
     {
+        $community_id = \Yii::$app->request->get('community');
+        $urlToCommunity = \Yii::$app->getUrlManager()->createUrl(['/community/join', 'id' => $community_id, 'subscribe' => 1]);
+
         if (!Yii::$app->user->isGuest) {
             Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Already Logged In'));
 
@@ -340,6 +360,9 @@ class SocialAuthController extends BackendController
 
                 $signIn = Yii::$app->user->login($socialUser->user, $loginTimeout);
 
+                if($community_id){
+                    return $this->redirect($urlToCommunity);
+                }
                 return $this->goBack();
             }
         }
@@ -371,6 +394,9 @@ class SocialAuthController extends BackendController
                 //Logijn to the platform
                 $signIn = Yii::$app->user->login($userMatchMail, $loginTimeout);
 
+                if($community_id){
+                    return $this->redirect($urlToCommunity);
+                }
                 return $this->goHome();
             }
         }
@@ -430,6 +456,10 @@ class SocialAuthController extends BackendController
 
         //Logijn to the platform
         $signIn = Yii::$app->user->login($socialUser->user, $loginTimeout);
+
+        if($community_id){
+            return $this->redirect($urlToCommunity);
+        }
 
         return $this->goHome();
     }
