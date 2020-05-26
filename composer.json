@@ -1,20 +1,20 @@
 {
-    "name": "lispa/amos-social-auth",
+    "name": "open20/amos-social-auth",
     "description": "Social Auth",
     "keywords": ["amos", "auth", "social", "yii2"],
-    "homepage": "https://bitbucket.org/lispa/amos-social-auth",
+    "homepage": "https://bitbucket.org/elite_division/amos-social-auth",
     "type": "component",
     "require": {
         "php": ">=5.4.0",
-        "lispa/amos-admin" : "*",
-        "lispa/amos-core" : "*",
-        "lispa/amos-attachments" : "*",
+        "open20/amos-admin":"^2.0.18",
+        "open20/amos-core":"^1.9.52",
+        "open20/amos-attachments":"^1.0",
         "hybridauth/hybridauth": "~2.9",
         "google/apiclient": "^2.0"
     },
     "autoload": {
         "psr-4": {
-            "lispa\\amos\\socialauth\\": "src"
+            "open20\\amos\\socialauth\\": "src"
         }
     }
 }

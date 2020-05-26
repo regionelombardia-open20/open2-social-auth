@@ -1,23 +1,23 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\socialauth\models
+ * @package    open20\amos\socialauth\models
  * @category   CategoryName
  */
 
-namespace lispa\amos\socialauth\models;
+namespace open20\amos\socialauth\models;
 
 
-use lispa\amos\core\record\Record;
-use lispa\amos\socialauth\Module;
+use open20\amos\core\record\Record;
+use open20\amos\socialauth\Module;
 
 /**
  * Class SocialAuthServices
- * @package lispa\amos\socialauth\models
+ * @package open20\amos\socialauth\models
  *
  * @property integer $id
  * @property integer $social_users_id
@@ -30,7 +30,7 @@ use lispa\amos\socialauth\Module;
  * @property string $service_id
  *
  * @property SocialAuthUsers $socialUser
- * @property \lispa\amos\core\user\User $user
+ * @property \open20\amos\core\user\User $user
  */
 class SocialAuthServices extends Record
 {
@@ -92,6 +92,6 @@ class SocialAuthServices extends Record
      */
     public function getUser()
     {
-        return $this->hasOne(\lispa\amos\core\user\User::className(), ['id' => 'user_id'])->via('socialUser');
+        return $this->hasOne(\open20\amos\core\user\User::className(), ['id' => 'user_id'])->via('socialUser');
     }
 }

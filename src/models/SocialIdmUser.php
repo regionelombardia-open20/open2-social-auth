@@ -1,10 +1,19 @@
 <?php
 
-namespace lispa\amos\socialauth\models;
+/**
+ * Aria S.p.A.
+ * OPEN 2.0
+ *
+ *
+ * @package    Open20Package
+ * @category   CategoryName
+ */
+
+namespace open20\amos\socialauth\models;
 
 use Yii;
 use yii\helpers\ArrayHelper;
-use lispa\amos\core\user\User;
+use open20\amos\core\user\User;
 
 /**
  * This is the model class for table "social_idm_user".
@@ -119,6 +128,7 @@ class SocialIdmUser extends \yii\db\ActiveRecord
      * Returns the text hint for the specified attribute.
      * @param string $attribute the attribute name
      * @return string the attribute hint
+     * @see attributeHints
      */
     public function getAttributeHint($attribute)
     {

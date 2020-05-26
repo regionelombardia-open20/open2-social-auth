@@ -1,11 +1,11 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\socialauth\i18n\it-IT
+ * @package    open20\amos\socialauth\i18n\it-IT
  * @category   CategoryName
  */
 
@@ -43,6 +43,7 @@ return [
     'User Not Corresponding' => 'Utente non corrispondente',
     'spid_login_welcome' => 'Utenza trovata',
     'spid_login_subtitle' => 'E\' stata trovata un\'utenza corrispondente all\'indirizzo email<br><strong>{email}</strong> utilizzato per l\'accesso SPID.<br>Si prega di controllare i seguenti dati e confermare la propria identità.',
+    'spid_login_subtitle_cns' => 'E\' stata trovata un\'utenza corrispondente all\'indirizzo email<br><strong>{email}</strong> utilizzato per l\'accesso CNS.<br>Si prega di controllare i seguenti dati e confermare la propria identità.',
     'spid_login_user_data' => 'Dati utenza',
     '#spid_login_multi_cf_subtitle' => 'Sono stati trovati i seguenti utenti<br>con il codice fiscale <strong>{cf}</strong>.<br>Con quale utenza vuoi accedere a Cruscotto Lavoro?',
     'spid_login_name' => 'Nome',
@@ -54,6 +55,7 @@ return [
     'spid_signup_subtitle' => 'Non è stata trovata nessuna utenza corrispondente al<br>codice fiscale <strong>{cf}</strong><br>o all\'indirizzo email <strong>{email}</strong>',
     'spid_signup_already_registered' => 'Già registrato in piattaforma?',
     'spid_signup_already_registered2' => 'Effettua il login per abilitare l\'accesso tramite SPID',
+    'spid_signup_already_registered3' => 'Effettua il login per abilitare l\'accesso tramite la CNS',
     'spid_signup_already_registered_btn' => 'Login',
     'spid_signup_register' => 'oppure:',
     'spid_signup_register2' => 'procedi con una nuova registrazione',

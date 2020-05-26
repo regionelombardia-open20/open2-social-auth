@@ -1,23 +1,23 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\socialauth\components
+ * @package    open20\amos\socialauth\components
  * @category   CategoryName
  */
 
-namespace lispa\amos\socialauth\components;
+namespace open20\amos\socialauth\components;
 
-use lispa\amos\socialauth\Module;
+use open20\amos\socialauth\Module;
 use Yii;
 use yii\base\Widget;
 
 /**
  * Class SocialLinkTable
- * @package lispa\amos\socialauth\components
+ * @package open20\amos\socialauth\components
  */
 class SocialLinkTable extends Widget
 {

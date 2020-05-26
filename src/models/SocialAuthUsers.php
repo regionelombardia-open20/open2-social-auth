@@ -1,19 +1,19 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\socialauth\models
+ * @package    open20\amos\socialauth\models
  * @category   CategoryName
  */
 
-namespace lispa\amos\socialauth\models;
+namespace open20\amos\socialauth\models;
 
-use lispa\amos\core\record\Record;
-use lispa\amos\core\user\User;
-use lispa\amos\socialauth\Module;
+use open20\amos\core\record\Record;
+use open20\amos\core\user\User;
+use open20\amos\socialauth\Module;
 
 /**
  * @property string $id ID

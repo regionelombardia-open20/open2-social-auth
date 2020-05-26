@@ -1,16 +1,16 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\socialauth
+ * @package    open20\amos\socialauth
  * @category   CategoryName
  */
 
 use yii\helpers\Html;
-use lispa\amos\core\icons\AmosIcons;
+use open20\amos\core\icons\AmosIcons;
 ?>
 <div class="social-auth-bar">
     <?php
@@ -43,7 +43,7 @@ use lispa\amos\core\icons\AmosIcons;
                         <button type="button" class="btn btn-social collega-social" data-type="<?= $lowCaseName ?>">
                             <span class="fa fa-<?= $lowCaseName ?>"></span>
                             <span>
-                                <?= \lispa\amos\socialauth\Module::t('amossocialauth', 'Collega il tuo profilo') ?>
+                                <?= \open20\amos\socialauth\Module::t('amossocialauth', 'Collega il tuo profilo') ?>
                             </span>
                         </button>
                     <?php endif; ?>
@@ -68,14 +68,14 @@ use lispa\amos\core\icons\AmosIcons;
                         </div>
                         <div class="field-media">
                             <label>Email</label>
-                            <span>damian.gomez@lispa.it</span>
+                            <span>damian.gomez@open20.it</span>
                         </div>
                     </div>
                 </div>
             <?php else: ?>
                 <div class="validatore_container checkws">
                     <br>
-                    <?= \lispa\amos\socialauth\Module::t('amossocialauth', 'Nessun profilo collegato.') ?>
+                    <?= \open20\amos\socialauth\Module::t('amossocialauth', 'Nessun profilo collegato.') ?>
                 </div>
             <?php endif; ?>
         </div>

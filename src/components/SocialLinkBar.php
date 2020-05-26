@@ -1,19 +1,19 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\socialauth
+ * @package    open20\amos\socialauth
  * @category   CategoryName
  */
 
-namespace lispa\amos\socialauth\components;
+namespace open20\amos\socialauth\components;
 
-use lispa\amos\core\icons\AmosIcons;
-use lispa\amos\socialauth\models\SocialAuthUsers;
-use lispa\amos\socialauth\Module;
+use open20\amos\core\icons\AmosIcons;
+use open20\amos\socialauth\models\SocialAuthUsers;
+use open20\amos\socialauth\Module;
 use Yii;
 use yii\base\Component;
 use yii\base\Widget;
@@ -22,7 +22,7 @@ use yii\helpers\Html;
 
 /**
  * Class FileImport
- * @package lispa\amos\socialauth\components
+ * @package open20\amos\socialauth\components
  */
 class SocialLinkBar extends Widget
 {

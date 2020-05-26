@@ -1,30 +1,32 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\socialauth
+ * @package    open20\amos\socialauth
  * @category   CategoryName
  */
 
-namespace lispa\amos\socialauth\controllers;
+namespace open20\amos\socialauth\controllers;
 
-use lispa\amos\admin\AmosAdmin;
-use lispa\amos\admin\models\UserProfile;
-use lispa\amos\attachments\components\FileImport;
-use lispa\amos\core\controllers\BackendController;
-use lispa\amos\core\user\User;
-use lispa\amos\socialauth\models\SocialAuthUsers;
-use lispa\amos\socialauth\Module;
+use open20\amos\admin\AmosAdmin;
+use open20\amos\admin\models\UserProfile;
+use open20\amos\attachments\components\FileImport;
+use open20\amos\core\controllers\BackendController;
+use open20\amos\core\user\User;
+use open20\amos\mobile\bridge\modules\v1\models\AccessTokens;
+use open20\amos\socialauth\models\SocialAuthUsers;
+use open20\amos\socialauth\Module;
 use Yii;
+use yii\base\Exception;
 use yii\filters\AccessControl;
 use yii\helpers\Url;
 
 /**
  * Class FileController
- * @package lispa\amos\socialauth\controllers
+ * @package open20\amos\socialauth\controllers
  */
 class SocialAuthController extends BackendController
 {
@@ -58,6 +60,8 @@ class SocialAuthController extends BackendController
                             'endpoint',
                             'sign-in',
                             'sign-up',
+                            'mobile',
+                            'land',
                         ],
                         //'roles' => ['*']
                     ]
@@ -146,15 +150,15 @@ class SocialAuthController extends BackendController
      * @param $provider
      * @return bool|\yii\web\Response
      */
-    public function actionSignIn($provider)
+    public function actionSignIn($provider, $redirects = true)
     {
 
         $urlToRedirect = Yii::$app->getUser()->getReturnUrl('');
         $community_id = \Yii::$app->request->get('community');
 
-        if(strpos($urlToRedirect,'community/join') > 0 ){
-            $urlToCommunity =  \Yii::$app->getUrlManager()->createUrl($urlToRedirect);
-        }else {
+        if (strpos($urlToRedirect, 'community/join') > 0) {
+            $urlToCommunity = \Yii::$app->getUrlManager()->createUrl($urlToRedirect);
+        } else {
             $urlToCommunity = \Yii::$app->getUrlManager()->createUrl(['/community/join', 'id' => $community_id, 'subscribe' => 1]);
         }
 
@@ -171,7 +175,7 @@ class SocialAuthController extends BackendController
         /**
          * If the user is already logged in go to home
          */
-        if (!Yii::$app->user->isGuest) {
+        if (!Yii::$app->user->isGuest && $redirects) {
             Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Already Logged In'));
 
             return $this->goHome();
@@ -209,6 +213,11 @@ class SocialAuthController extends BackendController
          */
         $adapter->logout();
 
+        //Return direct result
+        if (!$redirects) {
+            return $userProfile;
+        }
+
         /**
          * @var $socialUser SocialAuthUsers
          */
@@ -233,11 +242,13 @@ class SocialAuthController extends BackendController
                     return $this->goBack();
                 }
 
+
                 $signIn = Yii::$app->user->login($socialUser->user, $loginTimeout);
+
                 // if google contact service enabled reload in session some contact data by google account
                 AmosAdmin::fetchGoogleContacts();
 
-                if($community_id){
+                if ($community_id) {
                     return $this->redirect($urlToCommunity);
                 }
 
@@ -271,9 +282,10 @@ class SocialAuthController extends BackendController
                     AmosAdmin::fetchGoogleContacts();
 
                     //Back to home
-                    if($community_id){
+                    if ($community_id) {
                         return $this->redirect($urlToCommunity);
                     }
+
                     return $this->goHome();
                 }
             } else {
@@ -284,6 +296,49 @@ class SocialAuthController extends BackendController
             }
             //Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'User Not Found, Please try with Other User'));
         }
+    }
+
+    /**
+     * @param $provider
+     * @return \yii\web\Response
+     */
+    public function actionMobile($provider)
+    {
+        $userProfile = $this->actionSignIn($provider, false);
+
+        if (!($userProfile instanceof \Hybrid_User_Profile)) {
+            return $this->redirect(['/socialauth/social-auth/land', 'error' => true, 'errorMessage' => Yii::t('socialauth', 'Accesso Social Non Disponibile')]);
+        }
+
+        $q = \open20\amos\mobile\bridge\modules\v1\models\User::find();
+        $q->where(['email' => $userProfile->email]);
+        $q->orWhere(['username' => $userProfile->email]);
+
+        $userMatchMail = $q->one();
+
+        if (!$userMatchMail || !$userMatchMail->id) {
+            return $this->redirect(['/socialauth/social-auth/land', 'error' => true, 'errorMessage' => Yii::t('socialauth', 'Non Sei Registrato Nella Piattaforma')]);
+        }
+
+        /**
+         * @var $token AccessTokens
+         */
+        $token = $userMatchMail->refreshAccessToken('mobile', 'mobile');
+
+        if ($token && !$token->hasErrors()) {
+            return $this->redirect(['/socialauth/social-auth/land', 'token' => $token->access_token]);
+        } else {
+            return $this->redirect(['/socialauth/social-auth/land', 'error' => true, 'errorMessage' => Yii::t('socialauth', 'Errore Di ACcesso, Riprovare Tra Qualche Minuto')]);
+        }
+
+    }
+
+    /**
+     * @return bool
+     */
+    public function actionLand()
+    {
+        return true;
     }
 
     /**
@@ -360,7 +415,7 @@ class SocialAuthController extends BackendController
 
                 $signIn = Yii::$app->user->login($socialUser->user, $loginTimeout);
 
-                if($community_id){
+                if ($community_id) {
                     return $this->redirect($urlToCommunity);
                 }
                 return $this->goBack();
@@ -394,7 +449,7 @@ class SocialAuthController extends BackendController
                 //Logijn to the platform
                 $signIn = Yii::$app->user->login($userMatchMail, $loginTimeout);
 
-                if($community_id){
+                if ($community_id) {
                     return $this->redirect($urlToCommunity);
                 }
                 return $this->goHome();
@@ -457,7 +512,7 @@ class SocialAuthController extends BackendController
         //Logijn to the platform
         $signIn = Yii::$app->user->login($socialUser->user, $loginTimeout);
 
-        if($community_id){
+        if ($community_id) {
             return $this->redirect($urlToCommunity);
         }
 
@@ -803,7 +858,7 @@ class SocialAuthController extends BackendController
          * If the adapter is not set go back to home
          */
         if (!$adapter) {
-            return $this->render('link-social-account', ['message' => 'no adapter for provider '.$provider]);
+            return $this->render('link-social-account', ['message' => 'no adapter for provider ' . $provider]);
         }
 
         /**
@@ -829,7 +884,7 @@ class SocialAuthController extends BackendController
             if ($existingUserProfile->user_id == Yii::$app->user->id) {
                 $message = Module::t('amossocialauth', 'Social Profile Already Connected');
             } else {
-               $message =  Module::t('amossocialauth', 'Social Profile Already Connected to Another User');
+                $message = Module::t('amossocialauth', 'Social Profile Already Connected to Another User');
             }
 
             return $this->render('link-social-account', ['message' => $message]);
@@ -860,11 +915,11 @@ class SocialAuthController extends BackendController
                 $message = Module::t('amossocialauth', 'Social profile Linked');
 
             } else {
-                $message =  Module::t('amossocialauth', 'Unable to Link The Social Profile');
+                $message = Module::t('amossocialauth', 'Unable to Link The Social Profile');
 
             }
         } else {
-           $message = Module::t('amossocialauth', 'Invalid Social Profile, Try again');
+            $message = Module::t('amossocialauth', 'Invalid Social Profile, Try again');
 
         }
         return $this->render('link-social-account', ['message' => $message]);
@@ -985,7 +1040,7 @@ class SocialAuthController extends BackendController
          */
         if (Yii::$app->user->isGuest) {
             $message = Module::t('amossocialauth', 'Please LogIn to your account First');
-            if(Yii::$app->request->isPost){
+            if (Yii::$app->request->isPost) {
                 $result['result'] = false;
                 $result['message'] = $message;
                 return json_encode($result);
@@ -997,8 +1052,8 @@ class SocialAuthController extends BackendController
          * If linking is not enabled
          */
         if (!$this->module->enableLink) {
-            $message =  Module::t('amossocialauth', 'Social Linking Disabled');
-            if(Yii::$app->request->isPost){
+            $message = Module::t('amossocialauth', 'Social Linking Disabled');
+            if (Yii::$app->request->isPost) {
                 $result['result'] = false;
                 $result['message'] = $message;
                 return json_encode($result);
@@ -1020,7 +1075,7 @@ class SocialAuthController extends BackendController
         if (!$socialUser || !$socialUser->id) {
             $message = Module::t('amossocialauth', 'Social User Not Found');
 
-            if(Yii::$app->request->isPost){
+            if (Yii::$app->request->isPost) {
                 $result['result'] = false;
                 $result['message'] = $message;
                 return json_encode($result);
@@ -1032,9 +1087,9 @@ class SocialAuthController extends BackendController
         //If found delete and go back
         $socialUser->delete();
 
-        $message =  Module::t('amossocialauth', 'Social Account Unlinked');
+        $message = Module::t('amossocialauth', 'Social Account Unlinked');
 
-        if(Yii::$app->request->isPost){
+        if (Yii::$app->request->isPost) {
             $result['result'] = true;
             $result['message'] = $message;
             return json_encode($result);

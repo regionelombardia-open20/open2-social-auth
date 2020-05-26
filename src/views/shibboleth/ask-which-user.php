@@ -1,19 +1,19 @@
 <?php
 
 /**
- * Lombardia Informatica S.p.A.
+ * Aria S.p.A.
  * OPEN 2.0
  *
  *
- * @package    lispa\amos\socialauth\views\shibboleth
+ * @package    open20\amos\socialauth\views\shibboleth
  * @category   CategoryName
  */
 
-use lispa\amos\admin\models\UserProfile;
-use lispa\amos\core\forms\ActiveForm;
-use lispa\amos\core\forms\editors\Select;
-use lispa\amos\socialauth\Module;
-use lispa\amos\socialauth\utility\SocialAuthUtility;
+use open20\amos\admin\models\UserProfile;
+use open20\amos\core\forms\ActiveForm;
+use open20\amos\core\forms\editors\Select;
+use open20\amos\socialauth\Module;
+use open20\amos\socialauth\utility\SocialAuthUtility;
 use yii\helpers\Html;
 
 /**
