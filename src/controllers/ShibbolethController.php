@@ -17,9 +17,10 @@ use open20\amos\core\user\User;
 use open20\amos\socialauth\models\SocialIdmUser;
 use open20\amos\socialauth\Module;
 use open20\amos\socialauth\utility\SocialAuthUtility;
+use Yii;
 use yii\base\Action;
 use yii\filters\AccessControl;
-use Yii;
+use yii\helpers\Url;
 
 /**
  * Class ShibbolethController
@@ -27,6 +28,8 @@ use Yii;
  */
 class ShibbolethController extends BackendController
 {
+    const LOGGED_WITH_SPID_SESSION_ID = 'logged_with_spid_user_id';
+
     /**
      * @var string $layout
      */
@@ -97,7 +100,7 @@ class ShibbolethController extends BackendController
     {
         $result = $this->tryIdmLink(false, true, false);
 
-        if(is_array($result) && isset($result['status'])) {
+        if (is_array($result) && isset($result['status'])) {
             $user = \open20\amos\mobile\bridge\modules\v1\models\User::findOne(Yii::$app->user->id);
             $user->refreshAccessToken('', '');
 
@@ -120,7 +123,7 @@ class ShibbolethController extends BackendController
             return $procedure;
         }
 
-        if($redirect) {
+        if ($redirect) {
             switch ($procedure['status']) {
                 case 'success':
                 case 'rl':
@@ -131,6 +134,10 @@ class ShibbolethController extends BackendController
                     {
                         return $this->redirect(['/', 'done' => $procedure['status']]);
                     }
+                    break;
+                case 'disabled':
+                    \Yii::$app->session->set(self::LOGGED_WITH_SPID_SESSION_ID, $procedure['user_id']);
+                    return $this->redirect(['/Shibboleth.sso/Logout', 'return' => Url::to('/admin/login-info-request/activate-user?id=' . $procedure['user_id'], true)]);
                     break;
             }
         } else {
@@ -192,6 +199,9 @@ class ShibbolethController extends BackendController
                 'usersByCF' => $usersByCF
             ]);
         } elseif ($relation && $relation->id && \Yii::$app->user->isGuest) {
+            if ($this->isUserDisabled($relation->user_id)) {
+                return ['status' => 'disabled', 'user_id' => $relation->user_id];
+            }
             //Se l'utente è già collegato logga in automatico
             $signIn = \Yii::$app->user->login($relation->user, $loginTimeout);
 
@@ -201,6 +211,9 @@ class ShibbolethController extends BackendController
             return ['status' => 'rl'];
             //return $this->redirect(['/', 'done' => 'rl']);
         } elseif ($existsByFC && $existsByFC->id && \Yii::$app->user->isGuest) {
+            if ($this->isUserDisabled($existsByFC->user_id)) {
+                return ['status' => 'disabled', 'user_id' => $existsByFC->user_id];
+            }
             $signIn = \Yii::$app->user->login($existsByFC->user, $loginTimeout);
 
             //Store IDM user
@@ -219,6 +232,9 @@ class ShibbolethController extends BackendController
                 'authType' => $this->authType,
             ]);
         } elseif ($existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && $confirmLink) {
+            if ($this->isUserDisabled($existsByEmail->id)) {
+                return ['status' => 'disabled', 'user_id' => $existsByEmail->id];
+            }
             //Login
             $signIn = \Yii::$app->user->login($existsByEmail, $loginTimeout);
 
@@ -343,5 +359,23 @@ class ShibbolethController extends BackendController
     public function createIdmUser($userDatas)
     {
         return SocialAuthUtility::createIdmUser($userDatas);
+    }
+
+    /**
+     * @param $user
+     * @return bool
+     */
+    public function isUserDisabled($user_id)
+    {
+        $user = User::findOne($user_id);
+        if ($user) {
+            if ($user->status == User::STATUS_DELETED || !$user->userProfile->attivo) {
+                \Yii::$app->session->remove('IDM');
+                \Yii::$app->getSession()->addFlash('danger', Module::t('amossocialauth', 'User is disabled'));
+
+                return true;
+            }
+        }
+        return false;
     }
 }
