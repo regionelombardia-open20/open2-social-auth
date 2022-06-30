@@ -182,7 +182,7 @@ class SocialAuthController extends BackendController
         /**
          * If the user is already logged in go to home
          */
-        if (!Yii::$app->user->isGuest && $redirects) {
+        if (!\open20\amos\core\utilities\CurrentUser::isPlatformGuest() && $redirects) {
             Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Already Logged In'));
 
             return $this->goHome();
@@ -280,7 +280,7 @@ class SocialAuthController extends BackendController
                     Yii::$app->session->set('social-match', $provider);
                     Yii::$app->session->set('social-profile', $userProfile);
 
-                    return $this->redirect('/admin/security/login');
+                    return $this->redirect('/'.AmosAdmin::getInstance()->id.'/security/login');
                 } else {
                     //Link immediatelly to matched mail user
                     $this->linkSocialToUser($provider, $userProfile, $userMatchMail->id);
@@ -301,7 +301,7 @@ class SocialAuthController extends BackendController
                 Yii::$app->session->set('social-pending', $provider);
                 Yii::$app->session->set('social-profile', $userProfile);
 
-                return $this->redirect('/admin/security/register');
+                return $this->redirect('/'.AmosAdmin::getInstance()->id.'/security/register');
             }
             //Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'User Not Found, Please try with Other User'));
         }
@@ -359,7 +359,7 @@ class SocialAuthController extends BackendController
         $community_id = \Yii::$app->request->get('community');
         $urlToCommunity = \Yii::$app->getUrlManager()->createUrl(['/community/join', 'id' => $community_id, 'subscribe' => 1]);
 
-        if (!Yii::$app->user->isGuest) {
+        if (!\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
             Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Already Logged In'));
 
             return $this->goHome();
@@ -451,7 +451,7 @@ class SocialAuthController extends BackendController
                 Yii::$app->session->set('social-match', $provider);
                 Yii::$app->session->set('social-profile', $socialProfile);
 
-                return $this->redirect('/admin/security/login');
+                return $this->redirect('/'.AmosAdmin::getInstance()->id.'/security/login');
             } else {
                 $this->linkSocialToUser($provider, $socialProfile, $userMatchMail->id);
 
@@ -585,7 +585,7 @@ class SocialAuthController extends BackendController
             }
 
             /** @var AmosAdmin $adminModule */
-            $adminModule = Yii::$app->getModule('admin');
+            $adminModule = AmosAdmin::getInstance();
 
             /**
              * @var $newUser integer False or UserId
@@ -740,7 +740,7 @@ class SocialAuthController extends BackendController
         /**
          * If the user is already logged in go to home
          */
-        if (Yii::$app->user->isGuest) {
+        if (\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
             Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Please LogIn to your account First'));
 
             return $this->goHome();
@@ -845,7 +845,7 @@ class SocialAuthController extends BackendController
         /**
          * If the user is already logged in go to home
          */
-        if (Yii::$app->user->isGuest) {
+        if (\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
             $message = Module::t('amossocialauth', 'Please LogIn to your account First');
             return $this->render('link-social-account', ['message' => $message]);
         }
@@ -946,7 +946,7 @@ class SocialAuthController extends BackendController
         /**
          * If the user is already logged in go to home
          */
-        if (Yii::$app->user->isGuest) {
+        if (\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
             Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Please LogIn to your account First'));
 
             return $this->goHome();
@@ -1047,7 +1047,7 @@ class SocialAuthController extends BackendController
         /**
          * If the user is already logged in go to home
          */
-        if (Yii::$app->user->isGuest) {
+        if (\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
             $message = Module::t('amossocialauth', 'Please LogIn to your account First');
             if (Yii::$app->request->isPost) {
                 $result['result'] = false;

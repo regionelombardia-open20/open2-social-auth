@@ -17,6 +17,8 @@ class WidgetIconManageTokens extends WidgetIcon
      */
     public function init()
     {
+
+        return false;
         parent::init();
 
         $paramsClassSpan = [

@@ -53,9 +53,14 @@ class SocialAuthUtility
      * @param $userDatas
      * @return bool
      */
-    public static function createIdmUser($userDatas)
+    public static function createIdmUser($userDatas, $user_id = null)
     {
         $userId = (!\Yii::$app->user->isGuest ? \Yii::$app->user->id : 0);
+
+        if(!empty($user_id)){
+            $userId = $user_id;
+        }
+
         $ok = true;
 
         if ($userDatas instanceof Event) {
@@ -79,24 +84,25 @@ class SocialAuthUtility
 
         $socialIdmUser = SocialIdmUser::findOne([
             'numeroMatricola' => $userDatas['matricola'],
-            'nome' => $userDatas['nome'],
-            'cognome' => $userDatas['cognome'],
             'emailAddress' => $userDatas['emailAddress'],
             'codiceFiscale' => $userDatas['codiceFiscale'],
             'user_id' => $userId,
         ]);
 
         if (is_null($socialIdmUser)) {
-            $newRelation = new SocialIdmUser();
-            $newRelation->numeroMatricola = $userDatas['matricola'];
-            $newRelation->nome = $userDatas['nome'];
-            $newRelation->cognome = $userDatas['cognome'];
-            $newRelation->emailAddress = $userDatas['emailAddress'];
-            $newRelation->codiceFiscale = $userDatas['codiceFiscale'];
-            $newRelation->rawData = serialize($userDatas['rawData']);
-            $newRelation->user_id = $userId;
-            $ok = $newRelation->save(false);
+            $socialIdmUser = new SocialIdmUser();
+            $socialIdmUser->numeroMatricola = $userDatas['matricola'];
+            $socialIdmUser->nome = $userDatas['nome'];
+            $socialIdmUser->cognome = $userDatas['cognome'];
+            $socialIdmUser->emailAddress = $userDatas['emailAddress'];
+            $socialIdmUser->codiceFiscale = $userDatas['codiceFiscale'];
+            $socialIdmUser->user_id = $userId;
         }
+
+        $socialIdmUser->accessMethod = reset($userDatas['rawData']['saml_attribute_originedatiutente']);
+        $socialIdmUser->accessLevel = reset($userDatas['rawData']['saml_attribute_tipoautenticazione']);
+        $socialIdmUser->rawData = serialize($userDatas['rawData']);
+        $ok = $socialIdmUser->save(false);
 
         //Remove session data
         \Yii::$app->session->remove('IDM');

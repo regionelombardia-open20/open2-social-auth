@@ -56,6 +56,7 @@ class ShibbolethController extends BackendController
                             'endpoint',
                             'mobile',
                             'sign-up',
+                            'set-module-instance',
                         ],
                         //'roles' => ['*']
                     ]
@@ -121,7 +122,16 @@ class ShibbolethController extends BackendController
         $procedure = $this->procedure($confirmLink, $render);
         $adminModule = AmosAdmin::getInstance();
 
+        $urlRedirectPersonalized = \Yii::$app->session->get('redirect_url_spid');
+        if (!empty($urlRedirectPersonalized)) {
+            $redirect = true;
+            \Yii::$app->session->remove('redirect_url_spid');
+        }
+
         if (!is_array($procedure)) {
+            if (!empty($urlRedirectPersonalized)) {
+                return $this->redirect($urlRedirectPersonalized);
+            }
             return $procedure;
         }
 
@@ -134,9 +144,11 @@ class ShibbolethController extends BackendController
                 case 'override':
                 case 'conf':
                     {
+                        if (!empty($urlRedirectPersonalized)) {
+                            return $this->redirect($urlRedirectPersonalized);
+                        }
                         Yii::debug("Login Status for {$procedure['user_id']} : {$procedure['status']}");
-                        return $this->goHome();
-                    }
+                        return $this->goHome();                    }
                     break;
                 case 'disabled':
                     \Yii::$app->session->set(self::LOGGED_WITH_SPID_SESSION_ID, $procedure['user_id']);
@@ -155,20 +167,23 @@ class ShibbolethController extends BackendController
 
         //Find for existing relation
         $relation = SocialIdmUser::findOne(['numeroMatricola' => $userDatas['matricola']]);
-
+//pr($relation->toArray());die;
         //Find by other attributes
         $usersByCF = [];
         $countUsersByCF = 0;
+
         if ($userDatas['codiceFiscale']) {
             $usersByCF = UserProfile::find()->andWhere(['codice_fiscale' => $userDatas['codiceFiscale']])->all();
             $countUsersByCF = count($usersByCF);
         }
+
         /** @var UserProfile|null $existsByFC */
         $existsByFC = (($countUsersByCF == 1) ? reset($usersByCF) : null);
         $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
 
         /** @var Module $socialAuthModule */
         $socialAuthModule = Module::instance();
+        $adminModule = AmosAdmin::getInstance();
 
         //Get timeout for app login
         $loginTimeout = \Yii::$app->params['loginTimeout'] ?: 3600;
@@ -180,7 +195,11 @@ class ShibbolethController extends BackendController
                 if (in_array($post['user_by_fiscal_code'], $usersByCFUserIds)) {
                     $user = User::findOne($post['user_by_fiscal_code']);
                     if (!is_null($user)) {
+                        //Store IDM user
+                        $this->createIdmUser($userDatas, $user->id);
+
                         $signIn = \Yii::$app->user->login($user, $loginTimeout);
+
                         if ($signIn === true) {
                             SocialAuthUtility::updateFiscalCode(\Yii::$app->user->id, $userDatas['codiceFiscale']);
 
@@ -205,6 +224,10 @@ class ShibbolethController extends BackendController
             if ($this->isUserDisabled($relation->user_id)) {
                 return ['status' => 'disabled', 'user_id' => $relation->user_id];
             }
+//pr($relation->user_id);die;
+            //Store IDM user
+            $this->createIdmUser($userDatas, $relation->user_id);
+
             //Se l'utente è già collegato logga in automatico
             $signIn = \Yii::$app->user->login($relation->user, $loginTimeout);
 
@@ -217,10 +240,11 @@ class ShibbolethController extends BackendController
             if ($this->isUserDisabled($existsByFC->user_id)) {
                 return ['status' => 'disabled', 'user_id' => $existsByFC->user_id];
             }
-            $signIn = \Yii::$app->user->login($existsByFC->user, $loginTimeout);
 
             //Store IDM user
-            $this->createIdmUser($userDatas);
+            $this->createIdmUser($userDatas, $existsByFC->user_id);
+
+            $signIn = \Yii::$app->user->login($existsByFC->user, $loginTimeout);
 
             return ['status' => 'fc'];
             //return $this->redirect(['/', 'done' => 'fc']);
@@ -228,6 +252,11 @@ class ShibbolethController extends BackendController
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
         } elseif ($existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && !$confirmLink && $render) {
+            // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
+            if ($socialAuthModule->shibbolethAutoLogin) {
+                return $this->redirect(['/socialauth/shibboleth/endpoint', 'confirm' => true]);
+            }
+
             //Form to confirm identity and log-in
             return $this->render('log-in', [
                 'userDatas' => $userDatas,
@@ -238,15 +267,21 @@ class ShibbolethController extends BackendController
             if ($this->isUserDisabled($existsByEmail->id)) {
                 return ['status' => 'disabled', 'user_id' => $existsByEmail->id];
             }
-            //Login
-            $signIn = \Yii::$app->user->login($existsByEmail, $loginTimeout);
 
             //Store IDM user
-            $this->createIdmUser($userDatas);
+            $this->createIdmUser($userDatas, $existsByEmail->id);
+
+            //Login
+            $signIn = \Yii::$app->user->login($existsByEmail, $loginTimeout);
 
             return ['status' => 'conf'];
             //return $this->redirect(['/', 'done' => 'conf']);
         } elseif (\Yii::$app->user->isGuest && $render) {
+            // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
+            if ($socialAuthModule->shibbolethAutoRegistration) {
+                return $this->redirect(['/'.$adminModule->id.'/security/register', 'confirm' => true]);
+            }
+
             //Form to confirm identity and log-in
             return $this->render('ask-signup', [
                 'userDatas' => $userDatas,
@@ -343,11 +378,6 @@ class ShibbolethController extends BackendController
                     $rawData = $dataFetch->toArray();
                 }
             }
-    
-            if (strpos($codiceFiscale, 'TINIT-') !== false) {
-                $spliCF = explode('-', $codiceFiscale);
-                $codiceFiscale = end($spliCF);
-            }
 
             //Data to store in session in case header is not filled
             $sessionIDM = [
@@ -370,9 +400,9 @@ class ShibbolethController extends BackendController
      * @param $userDatas
      * @return bool
      */
-    public function createIdmUser($userDatas)
+    public function createIdmUser($userDatas, $user_id = null)
     {
-        return SocialAuthUtility::createIdmUser($userDatas);
+        return SocialAuthUtility::createIdmUser($userDatas, $user_id);
     }
 
     /**
@@ -391,5 +421,13 @@ class ShibbolethController extends BackendController
             }
         }
         return false;
+    }
+
+    public function actionSetModuleInstance() {
+        $moduleId = $this->module->id;
+
+        \Yii::$app->session->set('socialAuthInstance', $moduleId);
+
+        return $this->goHome();
     }
 }

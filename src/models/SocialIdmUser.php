@@ -39,6 +39,8 @@ use open20\amos\core\user\User;
  * @property string $origineDatiUtente
  * @property string $statoValidazioneProfiloUtente
  * @property string $idComuneRegistrazione
+ * @property string $accessMethod
+ * @property string $accessLevel
  * @property User $user User
  */
 class SocialIdmUser extends \yii\db\ActiveRecord
@@ -59,7 +61,38 @@ class SocialIdmUser extends \yii\db\ActiveRecord
     {
         return [
             [['numeroMatricola'], 'required'],
-            [['numeroMatricola', 'codiceFiscale', 'nome', 'cognome', 'ssoDN', 'tipoAutenticazione', 'ssoUrlLogout', 'responseBase64', 'emailAddress', 'livelloVerifica', 'nomeUtente', 'sesso', 'dataNascita', 'luogoNascita', 'provinciaNascita', 'statoNascita', 'identificativoUtente', 'cellulare', 'ragioneSociale', 'sedeLegale', 'partitaIVA', 'docIdentita', 'scadDocIdentita', 'domicilioFisico', 'domicilioDigitale', 'origineDatiUtente', 'statoValidazioneProfiloUtente', 'idComuneRegistrazione'], 'string', 'max' => 255],
+            [[
+                'numeroMatricola',
+                'codiceFiscale',
+                'nome',
+                'cognome',
+                'ssoDN',
+                'tipoAutenticazione',
+                'ssoUrlLogout',
+                'responseBase64',
+                'emailAddress',
+                'livelloVerifica',
+                'nomeUtente',
+                'sesso',
+                'dataNascita',
+                'luogoNascita',
+                'provinciaNascita',
+                'statoNascita',
+                'identificativoUtente',
+                'cellulare',
+                'ragioneSociale',
+                'sedeLegale',
+                'partitaIVA',
+                'docIdentita',
+                'scadDocIdentita',
+                'domicilioFisico',
+                'domicilioDigitale',
+                'origineDatiUtente',
+                'statoValidazioneProfiloUtente',
+                'idComuneRegistrazione',
+                'accessMethod',
+                'accessLevel'
+            ], 'string', 'max' => 255],
             [['user_id'], 'integer'],
         ];
     }

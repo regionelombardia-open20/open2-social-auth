@@ -45,6 +45,11 @@ class Module extends AmosModule implements BootstrapInterface
      */
     public $enableSpid = false;
 
+    public $shibbolethConfig = [
+        'buttonLabel' => '#fullsize_login_spid_text',
+        'buttonDescription' => '#fullsize_login_spid_text_right'
+    ];
+
     /**
      * @var $enableLogin bool Is Social Account Link Enabled?
      */
@@ -95,6 +100,16 @@ class Module extends AmosModule implements BootstrapInterface
     public $enableSpidMultiUsersSameCF = false;
 
     /**
+     * @var bool $shibbolethAutoLogin if true on shibboleth controller make automatic login
+     */
+    public $shibbolethAutoLogin = false;
+
+    /**
+     * @var bool $shibbolethAutoRegistration if true on shibboleth controller make automatic registration
+     */
+    public $shibbolethAutoRegistration = false;
+
+    /**
      * @inheritdoc
      */
     public function init()
@@ -105,6 +120,17 @@ class Module extends AmosModule implements BootstrapInterface
         //Configuration
         $config = require(__DIR__ . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.php');
         \Yii::configure($this, ArrayHelper::merge($config, $this));
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public static function getInstance() {
+        if(Yii::$app->session->has('socialAuthInstance')) {
+            return Yii::$app->getModule(Yii::$app->session->get('socialAuthInstance'));
+        }
+
+        return parent::getInstance();
     }
 
     /**
