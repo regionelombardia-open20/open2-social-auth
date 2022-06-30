@@ -123,7 +123,7 @@ class ShibbolethController extends BackendController
      */
     public function actionAutologin($confirm = false)
     {
-        if(!Yii::$app->session->has('backTo')) {
+        if (!Yii::$app->session->has('backTo')) {
             Yii::$app->session->set('backTo', \yii\helpers\Url::previous());
         }
 
@@ -133,7 +133,7 @@ class ShibbolethController extends BackendController
             $backTo = Yii::$app->session->get('backTo');
             Yii::$app->session->remove('backTo');
 
-            if(in_array($result['status'], ['autoregistration', 'autologin'])) {
+            if (in_array($result['status'], ['autoregistration', 'autologin'])) {
                 $backTo = '/socialauth/shibboleth/endpoint';
             }
 
@@ -142,7 +142,7 @@ class ShibbolethController extends BackendController
 
         return false;
     }
-    
+
     /**
      * @return \yii\base\View|\yii\web\Response|\yii\web\View
      */
@@ -179,7 +179,7 @@ class ShibbolethController extends BackendController
             \Yii::$app->session->remove('redirect_url_spid');
         } elseif (!empty($urlRedirectPostReg)) {
             //redirect personalized with autoregistration enabled
-            if($procedure['status'] != 'autoregistration') {
+            if ($procedure['status'] != 'autoregistration') {
                 $urlRedirectPersonalized = $urlRedirectPostReg;
             }
             $redirect = true;
@@ -191,6 +191,7 @@ class ShibbolethController extends BackendController
             }
             return $procedure;
         }
+//        pr($urlRedirectPersonalized);die;
         // VarDumper::dump( $procedure, $depth = 10, $highlight = true); die;
 
         if ($redirect) {
@@ -235,13 +236,13 @@ class ShibbolethController extends BackendController
         $isGuestUser = Yii::$app->user->isGuest;
 
         // baso il controllo sull'usare CurrentUser::isPlatformGuest sul paramtro
-        if(isset(Yii::$app->params['platformConfigurations']['guestUserId'])) {
+        if (isset(Yii::$app->params['platformConfigurations']) && isset(Yii::$app->params['platformConfigurations']['guestUserId'])) {
             $isGuestUser = \open20\amos\core\utilities\CurrentUser::isPlatformGuest();
         }
 
         return $isGuestUser;
     }
-    
+
     /**
      * @param bool $confirmLink
      * @param bool $render
@@ -255,7 +256,7 @@ class ShibbolethController extends BackendController
 
         //Find for existing relation
         $relation = SocialIdmUser::findOne(['numeroMatricola' => $userDatas['matricola']]);
-    
+
         /** @var Module $socialAuthModule */
         $socialAuthModule = Module::instance();
         $checkOnlyFiscalCode = $socialAuthModule->checkOnlyFiscalCode;
@@ -327,7 +328,7 @@ class ShibbolethController extends BackendController
             if ($this->isUserDisabled($relation->user_id)) {
                 return ['status' => 'disabled', 'user_id' => $relation->user_id];
             }
-            
+
             //Store IDM user
             $this->createIdmUser($userDatas, $relation->user_id);
 
@@ -359,7 +360,7 @@ class ShibbolethController extends BackendController
             }
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
-        } elseif (($relation && $relation->id) && (!$isGuestUser && $relation->user_id =!\Yii::$app->user->id)) {
+        } elseif (($relation && $relation->id) && (!$isGuestUser && $relation->user_id != \Yii::$app->user->id)) {
                 \Yii::$app->session->addFlash('warning', Module::t('amossocialauth','La tua identità digitale è già associata ad un altro account'));
                 \Yii::$app->session->remove('IDM');
                 
@@ -403,21 +404,40 @@ class ShibbolethController extends BackendController
             return ['status' => 'conf'];
             //return $this->redirect(['/', 'done' => 'conf']);
         } elseif ($isGuestUser && $render) {
+
+            // DL SEMPLIFICATION
+            if ($socialAuthModule->enableReconciliation || !$render) {
+                $urlRedirectUrlSpid = \Yii::$app->session->get('redirect_url_spid');
+//                pr($urlRedirectPostReg);die;
+                if (empty($urlRedirectUrlSpid)) {
+                    if (\Yii::$app->isCmsApplication()) {
+                        $viewToRender = 'bi-ask-reconciliation';
+                        $this->setActionLayout();
+                    } else {
+                        $viewToRender = 'ask-reconciliation';
+                    }
+                    return $this->render($viewToRender, [
+                        'userDatas' => $userDatas,
+                        'authType' => $this->authType,
+                    ]);
+                }
+            }
+
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
             if ($socialAuthModule->shibbolethAutoRegistration || !$render) {
                 return ['status' => 'autoregistration'];
             }
-    
+
             if (\Yii::$app->isCmsApplication()) {
                 $viewToRender = 'bi-ask-signup';
                 $this->setActionLayout();
             } else {
                 $viewToRender = 'ask-signup';
             }
-            
+
             $registerLink = [SocialAuthUtility::getRegisterLink(), 'confirm' => true, 'from-shibboleth' => true];
             $loginLink = [SocialAuthUtility::getLoginLink(), 'confirm' => true];
-    
+
             //Form to confirm identity and log-in
             return $this->render($viewToRender, [
                 'userDatas' => $userDatas,
@@ -534,7 +554,7 @@ class ShibbolethController extends BackendController
                         $matricola = $dataFetch->get('saml-attribute-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
                 }
             }
-    
+
             if (strpos($codiceFiscale, 'TINIT-') !== false) {
                 $spliCF = explode('-', $codiceFiscale);
                 $codiceFiscale = end($spliCF);
@@ -606,15 +626,16 @@ class ShibbolethController extends BackendController
         return $this->goHome();
     }
 
-    public static  function backgroundLogin() {
+    public static function backgroundLogin()
+    {
         $ref = Yii::$app->request->referrer;
         $socialModule = Module::getInstance();
 
-        if(!$socialModule->shibbolethConfig['backgroundLogin']) {
+        if (!$socialModule->shibbolethConfig['backgroundLogin']) {
             return false;
         }
 
-        if(!empty($socialModule->shibbolethConfig['backgroundLoginDomains']) && !in_array($ref, $socialModule->shibbolethConfig['backgroundLoginDomains'])) {
+        if (!empty($socialModule->shibbolethConfig['backgroundLoginDomains']) && !in_array($ref, $socialModule->shibbolethConfig['backgroundLoginDomains'])) {
             return false;
         }
 
@@ -625,7 +646,7 @@ class ShibbolethController extends BackendController
 
         return true;
     }
-    
+
     protected function setActionLayout()
     {
         if (!is_null($this->module->viewLayout)) {

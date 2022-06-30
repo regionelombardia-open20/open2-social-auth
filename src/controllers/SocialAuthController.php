@@ -363,7 +363,7 @@ class SocialAuthController extends BackendController
                     Yii::$app->session->set('social-match', $provider);
                     Yii::$app->session->set('social-profile', $this->userProfile);
 
-                    return $this->redirect('/' . AmosAdmin::getInstance()->id . '/security/login');
+                    return $this->redirect(SocialAuthUtility::getLoginLink());
                 } else {
                     //Link immediatelly to matched mail user
                     $this->linkSocialToUser($provider, $this->userProfile, $userMatchMail->id);
@@ -571,7 +571,7 @@ class SocialAuthController extends BackendController
                 Yii::$app->session->set('social-match', $provider);
                 Yii::$app->session->set('social-profile', $socialProfile);
 
-                return $this->redirect('/' . AmosAdmin::getInstance()->id . '/security/login');
+                return $this->redirect(SocialAuthUtility::getLoginLink());
             } else {
                 $this->linkSocialToUser($provider, $socialProfile, $userMatchMail->id);
 

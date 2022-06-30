@@ -33,6 +33,7 @@ return [
     'Unable to register, missing mail permission' => 'Unable to register, missing mail permission',
     'Unable to register, permission denied' => 'Unable to register, permission denied',
     'Unable to register, user creation error' => 'Unable to register, user creation error',
+    'Unable to register, user creation disabled' => 'Unable to register, user creation disabled',
     'Unable to store image file, try again' => 'Unable to store image file, try again',
     'User already registered in the system' =>  'User already registered in the system',
     'User deactivated. To log in again, request reactivation of the profile.' => 'User deactivated. To log in again, request reactivation of the profile.',

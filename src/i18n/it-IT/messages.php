@@ -36,6 +36,7 @@ return [
     'Unable to register, missing mail permission' => 'Impossibile registrarsi, permesso di lettura email negato',
     'Unable to register, permission denied' => 'Impossibile registrarsi, permesso negato',
     'Unable to register, user creation error' => 'Impossibile registrarsi, errore creazione utente piattaforma',
+    'Unable to register, user creation disabled' => 'Registrazione in piattaforma disabilitata: non è possibile procedere con la creazione del nuovo utente',
     'Unable to store image file, try again' => 'Impossibile salvare l\'immagine dell\'utente, procedura annullata',
     'User already registered in the system' => 'Utente già registrato a sistema',
     'User deactivated. To log in again, request reactivation of the profile.' => 'Utente disattivato. Per loggarsi di nuovo, richiedere la riattivazione del profilo.',

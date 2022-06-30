@@ -33,6 +33,7 @@ return [
     'Unable to register, missing mail permission' => 'Unable to register, missing mail permission',
     'Unable to register, permission denied' => 'Unable to register, permission denied',
     'Unable to register, user creation error' => 'Unable to register, user creation error',
+    'Unable to register, user creation disabled' => 'Unable to register, user creation disabled',
     'Unable to store image file, try again' => 'Unable to store image file, try again',
     'User already registered in the system' =>  'User already registered in the system',
     'User deactivated. To log in again, request reactivation of the profile.' => 'User deactivated. To log in again, request reactivation of the profile.',
@@ -62,6 +63,15 @@ return [
     'spid_signup_register2' => 'proceed with a new registration',
     'spid_signup_register_btn' => 'Sign in',
     'spid_go_to_login_btn' => 'Go to login',
-    "La tua identità digitale è già associata ad un altro account" => "Your digital identity is already associated to another account."
+    "La tua identità digitale è già associata ad un altro account" => "Your digital identity is already associated to another account.",
+    'Sei già registrato alla piattaforma?' => 'Already registered?',
+    'Sei un nuovo utente?' => 'Are you a new user?',
+    'Riconcilia il tuo profilo esisitente' => 'Enable your profile with spid',
+    "Grazie di aver effettuato l'accesso con la tua identità digitale. Se hai un’utenza già registrata su Open Innovation, clicca per riconciliare il tuo profilo esistente con l'Identità Digitale. Se invece sei un nuovo utente, finalizza la registrazione" => "Thank you for logging in with your Digital Identity. If you are already registered with your username on Open Innovation, click to reconcile your existing profile with the Digital Identity. If you are a new user, finalize the registration process.",
+    "BENVENUTO {nome} {cognome}" => "DEAR {nome} {cognome}",
+    "Sei già registrato in piattaforma?" => "Are you already registered?",
+    "Clicca qui per riconciliare il tuo profilo" => "Click here to reconcile your profile",
+    "Clicca qui per finalizzare la registrazione" => "Click here to finalize your registration",
+    "Riconcilia il tuo profilo esistente" => "RECONCILE YOUR EXISTING PROFILE",
 
 ];

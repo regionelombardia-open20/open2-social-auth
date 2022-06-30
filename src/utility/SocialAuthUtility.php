@@ -134,7 +134,7 @@ class SocialAuthUtility
 
         //Update username if required
         self::updateUserProfile($userId, $socialIdmUser);
-    
+
         //Remove session data
         \Yii::$app->session->remove('IDM');
 
@@ -166,7 +166,7 @@ class SocialAuthUtility
 
         return false;
     }
-    
+
     /**
      * @param int $userId
      * @param SocialIdmUser $socialIdmUser
@@ -176,31 +176,31 @@ class SocialAuthUtility
          * @var \open20\amos\socialauth\Module $socialModule
          */
         $socialModule = \Yii::$app->getModule('socialauth');
-        
+
         //Skip if not enabled the extra fields settings
         if(!isset($socialModule->shibbolethConfig['updateExtraProfileFields']) || !$socialModule->shibbolethConfig['updateExtraProfileFields']) {
             return false;
         }
-        
+
         $shibData = unserialize($socialIdmUser->rawData);
         $profile = UserProfile::findOne(['user_id' => $userId]);
-        
+
         if(!$profile || !$profile->id) {
             return false;
         }
-        
+
         switch ($socialIdmUser->accessMethod) {
             case 'UTENTE': {
                 $nomeutente = $shibData['saml-attribute-nomeutente'] ?: $shibData['Shib-Metadata-nomeutente'];
                 $username = is_array($nomeutente) ? reset($nomeutente) : $nomeutente;
-            
+
                 $user = $profile->user;
                 $user->username = $username;
                 $user->save();
             }
             break;
         }
-        
+
         return true;
     }
     
