@@ -122,10 +122,13 @@ class ShibbolethController extends BackendController
 
         $result = $this->tryIdmLink(false, true, false);
 
-
         if (is_array($result) && isset($result['status'])) {
             $backTo = Yii::$app->session->get('backTo');
             Yii::$app->session->remove('backTo');
+
+            if(in_array($result['status'], ['autoregistration', 'autologin'])) {
+                $backTo = '/socialauth/shibboleth/endpoint';
+            }
 
             return $this->render('autologin', ['backTo' => $backTo]);
         }
@@ -194,7 +197,7 @@ class ShibbolethController extends BackendController
                             return $this->redirect($urlRedirectPersonalized);
                         }
                         Yii::debug("Login Status for {$procedure['user_id']} : {$procedure['status']}");
-                        return $this->goHome();
+                        return $this->goBack();
                     }
                     break;
                 case 'autoregistration':
@@ -312,9 +315,9 @@ class ShibbolethController extends BackendController
 //            pr('b');
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
-        } elseif ($existsByEmail && $existsByEmail->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest() && !$confirmLink && $render) {
+        } elseif ($existsByEmail && $existsByEmail->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest() && !$confirmLink) {
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
-            if ($socialAuthModule->shibbolethAutoLogin) {
+            if ($socialAuthModule->shibbolethAutoLogin || !$render) {
 
                 if ($socialAuthModule->disableAssociationByEmail) {
                     \Yii::$app->getSession()->addFlash('danger', Module::t('amossocialauth', 'User already registered in the system'));
@@ -349,11 +352,12 @@ class ShibbolethController extends BackendController
 
             return ['status' => 'conf'];
             //return $this->redirect(['/', 'done' => 'conf']);
-        } elseif (\open20\amos\core\utilities\CurrentUser::isPlatformGuest() && $render) {
+        } elseif (\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
-            if ($socialAuthModule->shibbolethAutoRegistration) {
+            if ($socialAuthModule->shibbolethAutoRegistration || !$render) {
                 return ['status' => 'autoregistration'];
             }
+
 
             //Form to confirm identity and log-in
             return $this->render('ask-signup', [

@@ -21,6 +21,7 @@ use open20\amos\socialauth\models\search\ClientSearch;
 use open20\amos\socialauth\Module;
 use Yii;
 use yii\filters\AccessControl;
+use yii\helpers\Url;
 use yii\web\Response;
 
 class Oauth2Controller extends CrudController
@@ -158,6 +159,8 @@ class Oauth2Controller extends CrudController
      */
     public function actionAuth()
     {
+        //History Back when login with other system
+        Url::remember();
         $model = new LoginForm();
 
         if (Yii::$app->request->isPost && $model->load(\Yii::$app->request->post()) && $model->login()) {
