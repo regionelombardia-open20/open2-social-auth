@@ -179,11 +179,18 @@ class ShibbolethController extends BackendController
 
         /** @var UserProfile|null $existsByFC */
         $existsByFC = (($countUsersByCF == 1) ? reset($usersByCF) : null);
-        $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
-
+        
         /** @var Module $socialAuthModule */
         $socialAuthModule = Module::instance();
         $adminModule = AmosAdmin::getInstance();
+        
+        $checkOnlyFiscalCode = $socialAuthModule->checkOnlyFiscalCode;
+        $existsByEmail = null;
+        if (!$checkOnlyFiscalCode) {
+            $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
+        }
+
+        
 
         //Get timeout for app login
         $loginTimeout = \Yii::$app->params['loginTimeout'] ?: 3600;
@@ -251,7 +258,7 @@ class ShibbolethController extends BackendController
         } elseif ((($relation && $relation->id) || ($existsByFC && $existsByFC->id)) && !\Yii::$app->user->isGuest) {
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
-        } elseif ($existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && !$confirmLink && $render) {
+        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && !$confirmLink && $render) {
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
             if ($socialAuthModule->shibbolethAutoLogin) {
                 return $this->redirect(['/socialauth/shibboleth/endpoint', 'confirm' => true]);
@@ -263,7 +270,7 @@ class ShibbolethController extends BackendController
                 'userProfile' => $existsByEmail->profile,
                 'authType' => $this->authType,
             ]);
-        } elseif ($existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && $confirmLink) {
+        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && $confirmLink) {
             if ($this->isUserDisabled($existsByEmail->id)) {
                 return ['status' => 'disabled', 'user_id' => $existsByEmail->id];
             }

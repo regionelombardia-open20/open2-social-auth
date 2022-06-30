@@ -121,4 +121,15 @@ class SocialAuthUtility
         $user->codice_fiscale = $fiscalCode;
         return $user->save(false);
     }
+    
+    /**
+     * @param int $userId
+     * @return SocialIdmUser|null
+     */
+    public static function findSocialIdmByUserId($userId)
+    {
+        $socialIdmUser = SocialIdmUser::findOne(['user_id' => $userId]);
+        return $socialIdmUser;
+    }
+    
 }
