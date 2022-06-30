@@ -59,6 +59,13 @@ class ShibbolethController extends BackendController
                             'set-module-instance',
                         ],
                         //'roles' => ['*']
+                    ],
+                    [
+                        'allow' => true,
+                        'actions' => [
+                            'remove-spid',
+                        ],
+                        'roles' => ['@']
                     ]
                 ],
             ],
@@ -440,6 +447,19 @@ class ShibbolethController extends BackendController
 
         \Yii::$app->session->set('socialAuthInstance', $moduleId);
 
+        return $this->goHome();
+    }
+    
+    /**
+     * @param null $urlRedirect
+     * @return null|\yii\web\Response
+     */
+    public function actionRemoveSpid($urlRedirect = null)
+    {
+        SocialAuthUtility::disconnectIdm(\Yii::$app->user->id);
+        if ($urlRedirect) {
+            return $this->redirect($urlRedirect);
+        }
         return $this->goHome();
     }
 }
