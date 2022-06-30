@@ -7,6 +7,8 @@ use yii\helpers\Html;
 /**
  * @var array $userDatas
  * @var string $authType
+ * @var array $registerLink
+ * @var array $loginLink
  */
 $adminModule = AmosAdmin::getInstance();
 
@@ -26,12 +28,12 @@ if ($authType == 'IDPC_AUTHENTICATION_SMARTCARD') {
         <div class="col-xs-12 col-sm-6 text-center">
             <p><strong><?= Module::t('amossocialauth', 'spid_signup_already_registered') ?></strong></p>
             <p><?= $loginWithSpidOrCnsString; ?></p>
-            <?= Html::a(\Yii::t('amossocialauth', 'spid_signup_already_registered_btn'), ['/'.$adminModule->id.'/security/login', 'confirm' => true], ['class' => 'btn btn-administration-primary']); ?>
+            <?= Html::a(\Yii::t('amossocialauth', 'spid_signup_already_registered_btn'), $loginLink, ['class' => 'btn btn-administration-primary']); ?>
         </div>
         <div class="col-xs-12 col-sm-6 text-center">
             <p><strong><?= Module::t('amossocialauth', 'spid_signup_register') ?></strong></p>
             <p><?= Module::t('amossocialauth', 'spid_signup_register2') ?></p>
-            <?= Html::a(\Yii::t('amossocialauth', 'spid_signup_register_btn'), ['/'.$adminModule->id.'/security/register', 'confirm' => true], ['class' => 'btn btn-administration-primary']); ?>
+            <?= Html::a(\Yii::t('amossocialauth', 'spid_signup_register_btn'), $registerLink, ['class' => 'btn btn-administration-primary']); ?>
         </div>
     </div>
     <div class="col-lg-12 col-sm-12 col-xs-12 footer-link text-center">

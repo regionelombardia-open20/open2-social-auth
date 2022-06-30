@@ -11,6 +11,7 @@
 
 namespace open20\amos\socialauth\utility;
 
+use open20\amos\admin\AmosAdmin;
 use open20\amos\admin\models\UserProfile;
 use open20\amos\socialauth\models\SocialIdmUser;
 use yii\base\Event;
@@ -21,7 +22,6 @@ use yii\base\Event;
  */
 class SocialAuthUtility
 {
-
     /**
      * Questi sono metodi di accesso che non tengono conto del codice fiscale
      * Su questi metodi tutte le logiche sul codice fiscale non verranno prese in considerazione
@@ -30,6 +30,15 @@ class SocialAuthUtility
      */
     private static  $accessMethodsWithoutCF = [
         'EIDAS',
+    ];
+
+    /**
+     * Questi sono metodi di accesso che tengono conto del codice fiscale solo se presente
+     * Su questi metodi tutte le logiche sul codice fiscale verranno prese in considerazione solo se presente
+     *
+     * @var string[]
+     */
+    private static  $accessMethodsNotAlwaysWithCF = [
         'UTENTE',
     ];
 
@@ -93,7 +102,10 @@ class SocialAuthUtility
 
         $accessMethod = reset($userDatas['rawData']['saml-attribute-originedatiutente']);
         // l'update del codice fiscale va fatto solo per le origini con codice fiscale.
-        if(!in_array($accessMethod, self::$accessMethodsWithoutCF)) {
+        if (
+            (in_array($accessMethod, self::$accessMethodsNotAlwaysWithCF) && isset($userDatas['codiceFiscale']) && !empty($userDatas['codiceFiscale'])) ||
+            !in_array($accessMethod, self::$accessMethodsWithoutCF)
+        ) {
             // Update codice fiscale
             self::updateFiscalCode($userId, $userDatas['codiceFiscale']);
         }
@@ -120,6 +132,9 @@ class SocialAuthUtility
         $socialIdmUser->rawData = serialize($userDatas['rawData']);
         $ok = $socialIdmUser->save(false);
 
+        //Update username if required
+        self::updateUserProfile($userId, $socialIdmUser);
+    
         //Remove session data
         \Yii::$app->session->remove('IDM');
 
@@ -154,11 +169,84 @@ class SocialAuthUtility
     
     /**
      * @param int $userId
+     * @param SocialIdmUser $socialIdmUser
+     */
+    public static function updateUserProfile($userId, $socialIdmUser) {
+        /**
+         * @var \open20\amos\socialauth\Module $socialModule
+         */
+        $socialModule = \Yii::$app->getModule('socialauth');
+        
+        //Skip if not enabled the extra fields settings
+        if(!isset($socialModule->shibbolethConfig['updateExtraProfileFields']) || !$socialModule->shibbolethConfig['updateExtraProfileFields']) {
+            return false;
+        }
+        
+        $shibData = unserialize($socialIdmUser->rawData);
+        $profile = UserProfile::findOne(['user_id' => $userId]);
+        
+        if(!$profile || !$profile->id) {
+            return false;
+        }
+        
+        switch ($socialIdmUser->accessMethod) {
+            case 'UTENTE': {
+                $nomeutente = $shibData['saml-attribute-nomeutente'] ?: $shibData['Shib-Metadata-nomeutente'];
+                $username = is_array($nomeutente) ? reset($nomeutente) : $nomeutente;
+            
+                $user = $profile->user;
+                $user->username = $username;
+                $user->save();
+            }
+            break;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * @param int $userId
      * @return SocialIdmUser|null
      */
     public static function findSocialIdmByUserId($userId)
     {
         $socialIdmUser = SocialIdmUser::findOne(['user_id' => $userId]);
         return $socialIdmUser;
+    }
+    
+    /**
+     * This method returns the register link for the old or new applications.
+     * @return string
+     */
+    public static function getRegisterLink()
+    {
+        if (\Yii::$app->isCmsApplication()) {
+            if (\Yii::$app->params['linkConfigurations']['registrationLinkCommon']) {
+                $strPosRes = strpos(\Yii::$app->params['linkConfigurations']['registrationLinkCommon'], '/');
+                return (($strPosRes === false) || ($strPosRes > 0) ? '/' : '') . \Yii::$app->params['linkConfigurations']['registrationLinkCommon'];
+            } else {
+                return '/' . \amos\userauth\frontend\Module::getModuleName() . '/default/register';
+            }
+        } else {
+            return '/' . AmosAdmin::getModuleName() . '/security/register';
+        }
+    }
+    
+    /**
+     * This method returns the login link for the old or new applications.
+     * @return string
+     */
+    public static function getLoginLink()
+    {
+        if (\Yii::$app->isCmsApplication()) {
+            if (\Yii::$app->params['linkConfigurations']['loginLinkCommon']) {
+                $strPosRes = strpos(\Yii::$app->params['linkConfigurations']['loginLinkCommon'], '/');
+                return (($strPosRes === false) || ($strPosRes > 0) ? '/' : '') . \Yii::$app->params['linkConfigurations']['loginLinkCommon'];
+            } else {
+                return '/site/login';
+            }
+        } else {
+            return '/' . AmosAdmin::getModuleName() . '/security/login';
+        }
     }
 }

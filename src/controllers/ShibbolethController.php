@@ -23,7 +23,6 @@ use Yii;
 use yii\base\Action;
 use yii\filters\AccessControl;
 use yii\helpers\Url;
-use yii\helpers\VarDumper;
 
 /**
  * Class ShibbolethController
@@ -102,10 +101,8 @@ class ShibbolethController extends BackendController
      */
     public function init()
     {
-
         parent::init();
         $this->setUpLayout('login');
-        // custom initialization code goes here
     }
 
     /**
@@ -154,7 +151,7 @@ class ShibbolethController extends BackendController
         $result = $this->tryIdmLink(false, true, false);
         if (is_array($result) && isset($result['status']) || !$this->isGuestUser()) {
             if ($result['status'] == 'autoregistration') {
-                return $this->redirect(['/admin/security/register', 'confirm' => true, 'from-shibboleth' => true, 'mobile' => true]);
+                return $this->redirect([SocialAuthUtility::getRegisterLink(), 'confirm' => true, 'from-shibboleth' => true, 'mobile' => true]);
             }
             $user = \open20\amos\mobile\bridge\modules\v1\models\User::findOne(Yii::$app->user->id);
             $user->refreshAccessToken('', '');
@@ -218,7 +215,7 @@ class ShibbolethController extends BackendController
                     if (!empty($urlRedirectPersonalized)) {
                         return $this->redirect($urlRedirectPersonalized);
                     }
-                    return $this->redirect(['/' . $adminModule->id . '/security/register', 'confirm' => true, 'from-shibboleth' => true]);
+                    return $this->redirect([SocialAuthUtility::getRegisterLink(), 'confirm' => true, 'from-shibboleth' => true]);
                     break;
                 case 'disabled':
                     \Yii::$app->session->set(self::LOGGED_WITH_SPID_SESSION_ID, $procedure['user_id']);
@@ -410,11 +407,23 @@ class ShibbolethController extends BackendController
             if ($socialAuthModule->shibbolethAutoRegistration || !$render) {
                 return ['status' => 'autoregistration'];
             }
-
+    
+            if (\Yii::$app->isCmsApplication()) {
+                $viewToRender = 'bi-ask-signup';
+                $this->setActionLayout();
+            } else {
+                $viewToRender = 'ask-signup';
+            }
+            
+            $registerLink = [SocialAuthUtility::getRegisterLink(), 'confirm' => true, 'from-shibboleth' => true];
+            $loginLink = [SocialAuthUtility::getLoginLink(), 'confirm' => true];
+    
             //Form to confirm identity and log-in
-            return $this->render('ask-signup', [
+            return $this->render($viewToRender, [
                 'userDatas' => $userDatas,
                 'authType' => $this->authType,
+                'registerLink' => $registerLink,
+                'loginLink' => $loginLink,
             ]);
         } elseif (!$isGuestUser) {
             //Store IDM user
@@ -484,7 +493,7 @@ class ShibbolethController extends BackendController
                         $cognome = $dataFetch['saml-attribute-cognome'] ?: $dataFetch['Shib-Metadata-cognome'];
                         $emailAddress = $dataFetch['saml-attribute-emailaddress'] ?: $dataFetch['Shib-Metadata-emailaddress'];
                         $codiceFiscale = $dataFetch['saml-attribute-codicefiscale'] ?: $dataFetch['Shib-Metadata-codicefiscale'];
-                        $codiceFiscale = $dataFetch;
+                        $rawData = $dataFetch;
                     }
                     break;
                 case 'header_idm':
@@ -584,7 +593,6 @@ class ShibbolethController extends BackendController
         return $this->goHome();
     }
 
-
     /**
      * @param null $urlRedirect
      * @return null|\yii\web\Response
@@ -596,7 +604,6 @@ class ShibbolethController extends BackendController
             return $this->redirect($urlRedirect);
         }
         return $this->goHome();
-
     }
 
     public static  function backgroundLogin() {
@@ -617,5 +624,12 @@ class ShibbolethController extends BackendController
         ]);
 
         return true;
+    }
+    
+    protected function setActionLayout()
+    {
+        if (!is_null($this->module->viewLayout)) {
+            $this->layout = $this->module->viewLayout;
+        }
     }
 }

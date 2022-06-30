@@ -50,7 +50,8 @@ class Module extends AmosModule implements BootstrapInterface
         'buttonLabel' => '#fullsize_login_spid_text',
         'buttonDescription' => '#fullsize_login_spid_text_right',
         'backgroundLogin' => false,
-        'backgroundLoginDomains' => []
+        'backgroundLoginDomains' => [],
+        'updateExtraProfileFields' => false
     ];
 
     /**
@@ -89,6 +90,11 @@ class Module extends AmosModule implements BootstrapInterface
      * will be taken. If this is false, layout will be disabled within this module.
      */
     public $layout = 'main';
+    
+    /**
+     * @var string|null $viewLayout
+     */
+    public $viewLayout = '@vendor/open20/design/src/views/layouts/bi-main-layout';
 
     /**
      * @inheritdoc
@@ -120,7 +126,7 @@ class Module extends AmosModule implements BootstrapInterface
     /**
      * @var bool $checkOnlyFiscalCode
      */
-    public $checkOnlyFiscalCode = false;
+    public $checkOnlyFiscalCode = true;
 
     /**
      * @inheritdoc
@@ -329,11 +335,15 @@ class Module extends AmosModule implements BootstrapInterface
         }
 
         //Link to current user with IDM
-        if ($sessionIDM && $sessionIDM['matricola']) {
-            return $shibbolethController->tryIdmLink('idm', $sessionIDM, false, false);
+        if ($sessionIDM && $sessionIDM['codiceFiscale']) {
+            return $shibbolethController->tryIdmLink(true, true, false);
+        } elseif ($sessionIDM && $sessionIDM['matricola']) {
+            return $shibbolethController->tryIdmLink(true, true, false);
         } else if ($sessionIDM && $sessionIDM['saml-attribute-codicefiscale']) {
-            return $shibbolethController->tryIdmLink('spid', $sessionIDM, false, false);
+            return $shibbolethController->tryIdmLink(true, true, false);
         }
+        
+        return true;
     }
     
     /**

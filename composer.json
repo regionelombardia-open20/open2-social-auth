@@ -6,8 +6,8 @@
     "type": "component",
     "require": {
         "php": ">=5.4.0",
-        "open20/amos-admin":"^2.7.0",
-        "open20/amos-core":"^1.22.0",
+        "open20/amos-admin":"^2.7.4",
+        "open20/amos-core":"^1.23.0",
         "open20/amos-attachments":"^1.0",
         "hybridauth/hybridauth": "^3.1.1",
         "firebase/php-jwt": "^5.2.0",
