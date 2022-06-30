@@ -584,6 +584,12 @@ class SocialAuthController extends BackendController
                 return $this->goHome();
             }
         }
+    
+        if (!$this->module->socialAccountAutoRegistration) {
+            Yii::$app->session->set('social-pending', $provider);
+            Yii::$app->session->set('social-profile', $this->userProfile);
+            return $this->redirect(SocialAuthUtility::getRegisterLink());
+        }
 
         //Create user and user profile
         $userCreated = $this->createUser($socialProfile);
