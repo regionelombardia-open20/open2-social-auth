@@ -10,7 +10,9 @@
         "open20/amos-core":"^1.9.52",
         "open20/amos-attachments":"^1.0",
         "hybridauth/hybridauth": "~2.9",
-        "google/apiclient": "^2.0"
+        "google/apiclient": "^2.0",
+        "yiisoft/yii2-authclient": "^2.1.0",
+        "conquer/oauth2": "*"
     },
     "autoload": {
         "psr-4": {

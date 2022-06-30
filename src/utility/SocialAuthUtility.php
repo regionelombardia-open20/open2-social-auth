@@ -93,6 +93,7 @@ class SocialAuthUtility
             $newRelation->cognome = $userDatas['cognome'];
             $newRelation->emailAddress = $userDatas['emailAddress'];
             $newRelation->codiceFiscale = $userDatas['codiceFiscale'];
+            $newRelation->rawData = serialize($userDatas['rawData']);
             $newRelation->user_id = $userId;
             $ok = $newRelation->save(false);
         }

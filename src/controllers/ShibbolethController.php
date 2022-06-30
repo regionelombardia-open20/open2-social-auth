@@ -11,6 +11,7 @@
 
 namespace open20\amos\socialauth\controllers;
 
+use open20\amos\admin\AmosAdmin;
 use open20\amos\admin\models\UserProfile;
 use open20\amos\core\controllers\BackendController;
 use open20\amos\core\user\User;
@@ -118,6 +119,7 @@ class ShibbolethController extends BackendController
     public function tryIdmLink($confirmLink = false, $render = true, $redirect = true)
     {
         $procedure = $this->procedure($confirmLink, $render);
+        $adminModule = AmosAdmin::getInstance();
 
         if (!is_array($procedure)) {
             return $procedure;
@@ -132,12 +134,13 @@ class ShibbolethController extends BackendController
                 case 'override':
                 case 'conf':
                     {
-                        return $this->redirect(['/', 'done' => $procedure['status']]);
+                        Yii::debug("Login Status for {$procedure['user_id']} : {$procedure['status']}");
+                        return $this->goHome();
                     }
                     break;
                 case 'disabled':
                     \Yii::$app->session->set(self::LOGGED_WITH_SPID_SESSION_ID, $procedure['user_id']);
-                    return $this->redirect(['/Shibboleth.sso/Logout', 'return' => Url::to('/admin/login-info-request/activate-user?id=' . $procedure['user_id'], true)]);
+                    return $this->redirect(['/Shibboleth.sso/Logout', 'return' => Url::to('/'.$adminModule->id.'/login-info-request/activate-user?id=' . $procedure['user_id'], true)]);
                     break;
             }
         } else {
@@ -296,6 +299,7 @@ class ShibbolethController extends BackendController
             $cognome = null;
             $emailAddress = null;
             $codiceFiscale = null;
+            $rawData = null;
 
             //Based on type i pick the user identiffier
             switch ($type) {
@@ -306,6 +310,7 @@ class ShibbolethController extends BackendController
                         $cognome = $dataFetch['familyName'];
                         $emailAddress = $dataFetch['email'];
                         $codiceFiscale = $dataFetch['codiceFiscale'];
+                        $rawData = $dataFetch;
                     }
                     break;
                 case 'spid':
@@ -315,6 +320,7 @@ class ShibbolethController extends BackendController
                         $cognome = $dataFetch['saml_attribute_cognome'] ?: $dataFetch['saml-attribute-cognome'];
                         $emailAddress = $dataFetch['saml_attribute_emailaddress'] ?: $dataFetch['saml-attribute-emailaddress'];
                         $codiceFiscale = $dataFetch['saml_attribute_codicefiscale'] ?: $dataFetch['saml-attribute-codicefiscale'];
+                        $codiceFiscale = $dataFetch;
                     }
                     break;
                 case 'header_idm':
@@ -324,6 +330,7 @@ class ShibbolethController extends BackendController
                         $cognome = $dataFetch->get('familyName');
                         $emailAddress = $dataFetch->get('email');
                         $codiceFiscale = $dataFetch->get('fiscalCode');
+                        $rawData = $dataFetch->toArray();
                     }
                     break;
                 case 'header_spid':
@@ -333,12 +340,8 @@ class ShibbolethController extends BackendController
                     $cognome = $dataFetch->get('saml_attribute_cognome') ?: $dataFetch->get('saml-attribute-cognome');
                     $emailAddress = $dataFetch->get('saml_attribute_emailaddress') ?: $dataFetch->get('saml-attribute-emailaddress');
                     $codiceFiscale = $dataFetch->get('saml_attribute_codicefiscale') ?: $dataFetch->get('saml-attribute-codicefiscale');
+                    $rawData = $dataFetch->toArray();
                 }
-            }
-    
-            if (strpos($codiceFiscale, 'TINIT-') !== false) {
-                $spliCF = explode('-', $codiceFiscale);
-                $codiceFiscale = end($spliCF);
             }
 
             //Data to store in session in case header is not filled
@@ -347,7 +350,8 @@ class ShibbolethController extends BackendController
                 'nome' => $nome,
                 'cognome' => $cognome,
                 'emailAddress' => $emailAddress,
-                'codiceFiscale' => $codiceFiscale
+                'codiceFiscale' => $codiceFiscale,
+                'rawData' => $rawData
             ];
 
             //Store to session

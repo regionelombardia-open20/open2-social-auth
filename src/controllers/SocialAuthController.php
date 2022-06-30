@@ -100,15 +100,22 @@ class SocialAuthController extends BackendController
 
     /**
      * @param $provider
+     * @param null $urlBase
      * @return bool|\Hybrid_Provider_Adapter
      */
-    public function authProcedure($provider)
+    public function authProcedure($provider, $urlBase = null)
     {
         /**
          * @var $baseUrl string with the base url
          */
-        $baseUrl = Yii::$app->request->getHostInfo();
-        $baseUrl = str_replace('http://', 'https://', $baseUrl);
+        if (!empty($urlBase)) {
+            $baseUrl = $urlBase;
+
+        } else {
+            $baseUrl = Yii::$app->request->getHostInfo();
+        }
+        $baseUrl = str_replace('http://',
+            'https://', $baseUrl);
 
         /**
          * @var $config array with all configurations
@@ -125,7 +132,7 @@ class SocialAuthController extends BackendController
 
         try {
             /**
-             * @var $hybridauth Hybrid_Auth
+             * @var $hybridauth \Hybrid_Auth
              */
             $hybridauth = new \Hybrid_Auth($config);
         } catch (\Exception $e) {
@@ -150,7 +157,7 @@ class SocialAuthController extends BackendController
      * @param $provider
      * @return bool|\yii\web\Response
      */
-    public function actionSignIn($provider, $redirects = true)
+    public function actionSignIn($provider, $redirects = true, $redirectTo = null)
     {
 
         $urlToRedirect = Yii::$app->getUser()->getReturnUrl('');
@@ -248,7 +255,9 @@ class SocialAuthController extends BackendController
                 // if google contact service enabled reload in session some contact data by google account
                 AmosAdmin::fetchGoogleContacts();
 
-                if ($community_id) {
+                if ($redirectTo) {
+                    return $this->redirect($redirectTo);
+                } else if ($community_id) {
                     return $this->redirect($urlToCommunity);
                 }
 
