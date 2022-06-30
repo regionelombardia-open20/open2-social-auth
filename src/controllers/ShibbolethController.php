@@ -23,6 +23,7 @@ use Yii;
 use yii\base\Action;
 use yii\filters\AccessControl;
 use yii\helpers\Url;
+use yii\helpers\VarDumper;
 
 /**
  * Class ShibbolethController
@@ -41,6 +42,17 @@ class ShibbolethController extends BackendController
      * @var string $authType
      */
     protected $authType = '';
+
+    /**
+     * Questi sono metodi di accesso che non tengono conto del codice fiscale
+     * Su questi metodi tutte le logiche sul codice fiscale non verranno prese in considerazione
+     *
+     * @var string[]
+     */
+    private $accessMethodsWithoutCF = [
+        'EIDAS',
+        'UTENTE',
+    ];
 
     /**
      * @inheritdoc
@@ -140,7 +152,7 @@ class ShibbolethController extends BackendController
     public function actionMobile()
     {
         $result = $this->tryIdmLink(false, true, false);
-        if (is_array($result) && isset($result['status']) || !\Yii::$app->user->isGuest) {
+        if (is_array($result) && isset($result['status']) || !$this->isGuestUser()) {
             if ($result['status'] == 'autoregistration') {
                 return $this->redirect(['/admin/security/register', 'confirm' => true, 'from-shibboleth' => true, 'mobile' => true]);
             }
@@ -208,6 +220,21 @@ class ShibbolethController extends BackendController
             return $procedure;
         }
     }
+
+    /**
+     * Controlli su utente guest - se possibile utilizzare CurrentUser::isPlatformGuest()
+     */
+    private function isGuestUser()
+    {
+        $isGuestUser = Yii::$app->user->isGuest;
+
+        // baso il controllo sull'usare CurrentUser::isPlatformGuest sul paramtro
+        if(isset(Yii::$app->params['platformConfigurations']['guestUserId'])) {
+            $isGuestUser = \open20\amos\core\utilities\CurrentUser::isPlatformGuest();
+        }
+
+        return $isGuestUser;
+    }
     
     /**
      * @param bool $confirmLink
@@ -227,6 +254,9 @@ class ShibbolethController extends BackendController
         $socialAuthModule = Module::instance();
         $checkOnlyFiscalCode = $socialAuthModule->checkOnlyFiscalCode;
 
+        // Controlli su utente guest - se possibile utilizzare is platformGuest
+        $isGuestUser = $this->isGuestUser();
+
         //Find by other attributes
         $usersByCF = [];
         $countUsersByCF = 0;
@@ -237,7 +267,16 @@ class ShibbolethController extends BackendController
         }
 
         /** @var UserProfile|null $existsByFC */
-        $existsByFC = (($countUsersByCF == 1) ? reset($usersByCF) : null);
+        $existsByFC = null;
+
+        // Se l'origine dei dati è senza codice fiscale allora non essite nessun aggancio con con codice fiscale da valutare!
+        if (in_array(reset($userDatas['rawData']['saml-attribute-originedatiutente']), $this->accessMethodsWithoutCF)) {
+            $existsByFC = false;
+        } else {
+            /** @var UserProfile|null $existsByFC */
+            $existsByFC = (($countUsersByCF == 1) ? reset($usersByCF) : null);
+        }
+
         $existsByEmail = null;
         if (!$checkOnlyFiscalCode) {
             $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
@@ -278,7 +317,7 @@ class ShibbolethController extends BackendController
                 'userDatas' => $userDatas,
                 'usersByCF' => $usersByCF
             ]);
-        } elseif ($relation && $relation->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
+        } elseif ($relation && $relation->id && $isGuestUser) {
             if ($this->isUserDisabled($relation->user_id)) {
                 return ['status' => 'disabled', 'user_id' => $relation->user_id];
             }
@@ -294,7 +333,7 @@ class ShibbolethController extends BackendController
 
             return ['status' => 'rl'];
             //return $this->redirect(['/', 'done' => 'rl']);
-        } elseif ($existsByFC && $existsByFC->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
+        } elseif ($existsByFC && $existsByFC->id && $isGuestUser) {
             if ($this->isUserDisabled($existsByFC->user_id)) {
                 return ['status' => 'disabled', 'user_id' => $existsByFC->user_id];
             }
@@ -306,7 +345,7 @@ class ShibbolethController extends BackendController
 
             return ['status' => 'fc'];
             //return $this->redirect(['/', 'done' => 'fc']);
-        } elseif (($existsByFC && $existsByFC->id && $existsByFC->user_id == \Yii::$app->user->id && (empty($relation))) && !\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
+        } elseif (($existsByFC && $existsByFC->id && $existsByFC->user_id == \Yii::$app->user->id && (empty($relation))) && !$isGuestUser) {
             if (\Yii::$app->session->get('connectSpidToProfile')) {
                 $this->createIdmUser($userDatas);
                 \Yii::$app->session->remove('connectSpidToProfile');
@@ -314,13 +353,13 @@ class ShibbolethController extends BackendController
             }
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
-        } elseif (($relation && $relation->id) && !\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
+        } elseif (($relation && $relation->id) && !$isGuestUser) {
                 \Yii::$app->session->addFlash('warning', Module::t('amossocialauth','La tua identità digitale è già associata ad un altro account'));
                 \Yii::$app->session->remove('IDM');
                 
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
-        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest() && !$confirmLink) {
+        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && $isGuestUser && !$confirmLink) {
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
             if ($socialAuthModule->shibbolethAutoLogin || !$render) {
 
@@ -339,7 +378,7 @@ class ShibbolethController extends BackendController
                 'userProfile' => $existsByEmail->profile,
                 'authType' => $this->authType,
             ]);
-        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest() && $confirmLink) {
+        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && $isGuestUser && $confirmLink) {
             if ($socialAuthModule->disableAssociationByEmail) {
                 \Yii::$app->getSession()->addFlash('danger', Module::t('amossocialauth', 'User already registered in the system'));
                 return ['status' => 'disabled-autologin'];
@@ -357,7 +396,7 @@ class ShibbolethController extends BackendController
 
             return ['status' => 'conf'];
             //return $this->redirect(['/', 'done' => 'conf']);
-        } elseif (\Yii::$app->user->isGuest && $render) {
+        } elseif ($isGuestUser && $render) {
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
             if ($socialAuthModule->shibbolethAutoRegistration || !$render) {
                 return ['status' => 'autoregistration'];
@@ -368,7 +407,7 @@ class ShibbolethController extends BackendController
                 'userDatas' => $userDatas,
                 'authType' => $this->authType,
             ]);
-        } elseif (!\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
+        } elseif (!$isGuestUser) {
             //Store IDM user
             $this->createIdmUser($userDatas);
             \Yii::$app->session->remove('connectSpidToProfile');
@@ -459,10 +498,23 @@ class ShibbolethController extends BackendController
                         $rawData = $dataFetch->toArray();
                     }
             }
-    
-            if (strpos($codiceFiscale, 'TINIT-') !== false) {
-                $spliCF = explode('-', $codiceFiscale);
-                $codiceFiscale = end($spliCF);
+
+            /** Override di matricola nel caso di metodo di accesso senza codice fiscale */
+            if (in_array($dataFetch->get('saml-attribute-originedatiutente'), $this->accessMethodsWithoutCF)) {
+                // la matricola va presa opportunamente in base alla tipologia di accesso
+                switch ($dataFetch->get('saml-attribute-originedatiutente')) {
+                    case 'UTENTE':
+                        $matricola = $dataFetch->get('saml-attribute-nomeutente') ?: $dataFetch->get('Shib-Metadata-nomeutente');
+                        break;
+
+                    case 'EIDAS':
+                        $matricola = $dataFetch->get('saml-attribute-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
+                        break;
+
+                    // di default se esiste prendiamo identificativoutente...
+                    default:
+                        $matricola = $dataFetch->get('saml-attribute-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
+                }
             }
 
             //Data to store in session in case header is not filled

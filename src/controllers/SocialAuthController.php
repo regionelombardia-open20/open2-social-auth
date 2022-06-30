@@ -16,7 +16,6 @@ use open20\amos\admin\models\UserProfile;
 use open20\amos\attachments\components\FileImport;
 use open20\amos\core\controllers\BackendController;
 use open20\amos\core\forms\editors\AmosDatePicker;
-use open20\amos\core\helpers\Html;
 use open20\amos\core\user\User;
 use open20\amos\mobile\bridge\modules\v1\models\AccessTokens;
 use open20\amos\socialauth\models\SocialAuthUsers;
@@ -141,35 +140,31 @@ class SocialAuthController extends BackendController
             \Yii::$app->session->set('socialAuthBackTo', $backTo);
         }
 
-        if(!\Yii::$app->session->has('socialAuthUserProfile')) {
-            /**
-             * @var $adapter AbstractAdapter
-             */
-            $adapter = $this->authProcedure($provider);
+        /**
+         * @var $adapter AbstractAdapter
+         */
+        $adapter = $this->authProcedure($provider);
 
-            /**
-             * If the adapter is not set go back to home
-             */
-            if (!$adapter) {
+        /**
+         * If the adapter is not set go back to home
+         */
+        if (!$adapter) {
 //            return $this->goHome();
-                return $this->goBack();
-            }
-
-            /**
-             * @var $userProfile Profile
-             */
-            $this->userProfile = $adapter->getUserProfile();
-
-            /**
-             * Kick off social user
-             */
-            $adapter->disconnect();
-
-            //Store profile in session for custom usage
-            \Yii::$app->session->set('socialAuthUserProfile', $this->userProfile);
-        } else {
-            $this->userProfile = \Yii::$app->session->get('socialAuthUserProfile');
+            return $this->goBack();
         }
+
+        /**
+         * @var $userProfile Profile
+         */
+        $this->userProfile = $adapter->getUserProfile();
+
+        /**
+         * Kick off social user
+         */
+        $adapter->disconnect();
+
+        //Store profile in session for custom usage
+        \Yii::$app->session->set('socialAuthUserProfile', $this->userProfile);
 
         //Custo  back to url
         if($backTo) {
@@ -309,15 +304,11 @@ class SocialAuthController extends BackendController
             if ($socialUser->user && $socialUser->user->id) {
                 //Check user deactivated
                 if ($socialUser->user->status == User::STATUS_DELETED) {
-                    $msg = AmosAdmin::t('amosadmin', 'reactivation of the profile');
                     Yii::$app->session->addFlash(
                         'danger',
                         Module::t(
                             'amosadmin',
-                            'User deactivated. To log in again, request {reactivation_of_the_profile}.',
-                            [
-                                'reactivation_of_the_profile' => Html::a($msg, ['/' . AmosAdmin::getModuleName() . '/security/reactivate-profile'], ['title' => $msg])
-                            ]
+                            'User deactivated. To log in again, request reactivation of the profile.'
                         )
                     );
 
@@ -523,15 +514,11 @@ class SocialAuthController extends BackendController
             if ($socialUser->user && $socialUser->user->id) {
                 //Check user deactivated
                 if ($socialUser->user->status == User::STATUS_DELETED) {
-                    $msg = AmosAdmin::t('amosadmin', 'reactivation of the profile');
                     Yii::$app->session->addFlash(
                         'danger',
                         Module::t(
                             'amosadmin',
-                            'User deactivated. To log in again, request {reactivation_of_the_profile}.',
-                            [
-                                'reactivation_of_the_profile' => Html::a($msg, ['/' . AmosAdmin::getModuleName() . '/security/reactivate-profile'], ['title' => $msg])
-                            ]
+                            'User deactivated. To log in again, request reactivation of the profile.'
                         )
                     );
 //                    return $this->goHome();
@@ -1256,12 +1243,10 @@ class SocialAuthController extends BackendController
      */
     public function actionGetUserSocial($provider = 'facebook', $urlToRedirect = null){
 
-        if(!\Yii::$app->session->has('socialAuthUserProfile')) {
-            /**
+        /**
              * @var $adapter \Hybrid_Provider_Adapter
              */
             $adapter = $this->authProcedure($provider, Yii::$app->params['platform']['backendUrl']);
-
             /**
              * If the adapter is not set go back to home
              */
@@ -1279,27 +1264,24 @@ class SocialAuthController extends BackendController
              * Kick off social user
              */
             $adapter->logout();
-        } else {
-            $userProfile = \Yii::$app->session->get('socialAuthUserProfile');
-        }
 
-        /**
-         * @var $socialUser SocialAuthUsers
-         */
-        $socialUser = SocialAuthUsers::findOne(['identifier' => $userProfile->identifier,
-            'provider' => $provider]);
+            /**
+             * @var $socialUser SocialAuthUsers
+             */
+            $socialUser = SocialAuthUsers::findOne(['identifier' => $userProfile->identifier,
+                'provider' => $provider]);
 
-        /**
-         * If the social user exists
-         */
-        if ($socialUser) {
-            $userProfile = new \Hybrid_User_Profile();
-            $profile = $socialUser->user->userProfile;
-            $userProfile->firstName = $profile->nome;
-            $userProfile->lastName = $profile->cognome;
-            $userProfile->email = $socialUser->user->email;
-        }
-
+            /**
+             * If the social user exists
+             */
+            if ($socialUser) {
+                $userProfile = new \Hybrid_User_Profile();
+                $profile = $socialUser->user->userProfile;
+                $userProfile->firstName = $profile->nome;
+                $userProfile->lastName = $profile->cognome;
+                $userProfile->email = $socialUser->user->email;
+            }
+//        pr(\Yii::$app->getUser()->getReturnUrl());die;
         if(strpos('?', $urlToRedirect) > 0){
                 $separator = '&';
         }else{

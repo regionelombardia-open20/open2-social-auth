@@ -21,6 +21,18 @@ use yii\base\Event;
  */
 class SocialAuthUtility
 {
+
+    /**
+     * Questi sono metodi di accesso che non tengono conto del codice fiscale
+     * Su questi metodi tutte le logiche sul codice fiscale non verranno prese in considerazione
+     *
+     * @var string[]
+     */
+    private static  $accessMethodsWithoutCF = [
+        'EIDAS',
+        'UTENTE',
+    ];
+
     /**
      * This method takes an array of UserProfile objects and return an array with user id in the key and name, surname and email in the value.
      * @param UserProfile[] $userProfiles
@@ -79,8 +91,12 @@ class SocialAuthUtility
             }
         }
 
-        // Update codice fiscale
-        self::updateFiscalCode($userId, $userDatas['codiceFiscale']);
+        $accessMethod = reset($userDatas['rawData']['saml-attribute-originedatiutente']);
+        // l'update del codice fiscale va fatto solo per le origini con codice fiscale.
+        if(!in_array($accessMethod, self::$accessMethodsWithoutCF)) {
+            // Update codice fiscale
+            self::updateFiscalCode($userId, $userDatas['codiceFiscale']);
+        }
 
         $socialIdmUser = SocialIdmUser::findOne([
             'numeroMatricola' => $userDatas['matricola'],
@@ -99,7 +115,7 @@ class SocialAuthUtility
             $socialIdmUser->user_id = $userId;
         }
 
-        $socialIdmUser->accessMethod = reset($userDatas['rawData']['saml-attribute-originedatiutente']);
+        $socialIdmUser->accessMethod = $accessMethod;
         $socialIdmUser->accessLevel = reset($userDatas['rawData']['saml-attribute-tipoautenticazione']);
         $socialIdmUser->rawData = serialize($userDatas['rawData']);
         $ok = $socialIdmUser->save(false);
