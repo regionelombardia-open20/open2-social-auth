@@ -16,6 +16,7 @@ use open20\amos\admin\models\UserProfile;
 use open20\amos\attachments\components\FileImport;
 use open20\amos\core\controllers\BackendController;
 use open20\amos\core\forms\editors\AmosDatePicker;
+use open20\amos\core\helpers\Html;
 use open20\amos\core\user\User;
 use open20\amos\mobile\bridge\modules\v1\models\AccessTokens;
 use open20\amos\socialauth\models\SocialAuthUsers;
@@ -304,11 +305,15 @@ class SocialAuthController extends BackendController
             if ($socialUser->user && $socialUser->user->id) {
                 //Check user deactivated
                 if ($socialUser->user->status == User::STATUS_DELETED) {
+                    $msg = AmosAdmin::t('amosadmin', 'reactivation of the profile');
                     Yii::$app->session->addFlash(
                         'danger',
                         Module::t(
                             'amosadmin',
-                            'User deactivated. To log in again, request reactivation of the profile.'
+                            'User deactivated. To log in again, request {reactivation_of_the_profile}.',
+                            [
+                                'reactivation_of_the_profile' => Html::a($msg, ['/' . AmosAdmin::getModuleName() . '/security/reactivate-profile'], ['title' => $msg])
+                            ]
                         )
                     );
 
@@ -514,11 +519,15 @@ class SocialAuthController extends BackendController
             if ($socialUser->user && $socialUser->user->id) {
                 //Check user deactivated
                 if ($socialUser->user->status == User::STATUS_DELETED) {
+                    $msg = AmosAdmin::t('amosadmin', 'reactivation of the profile');
                     Yii::$app->session->addFlash(
                         'danger',
                         Module::t(
                             'amosadmin',
-                            'User deactivated. To log in again, request reactivation of the profile.'
+                            'User deactivated. To log in again, request {reactivation_of_the_profile}.',
+                            [
+                                'reactivation_of_the_profile' => Html::a($msg, ['/' . AmosAdmin::getModuleName() . '/security/reactivate-profile'], ['title' => $msg])
+                            ]
                         )
                     );
 //                    return $this->goHome();

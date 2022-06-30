@@ -19,12 +19,10 @@ use open20\amos\core\user\User;
 use open20\amos\socialauth\models\SocialIdmUser;
 use open20\amos\socialauth\Module;
 use open20\amos\socialauth\utility\SocialAuthUtility;
-use open20\amos\tag\models\Tag;
 use Yii;
 use yii\base\Action;
 use yii\filters\AccessControl;
 use yii\helpers\Url;
-use yii\helpers\VarDumper;
 
 /**
  * Class ShibbolethController
@@ -120,7 +118,7 @@ class ShibbolethController extends BackendController
             Yii::$app->session->set('backTo', \yii\helpers\Url::previous());
         }
 
-        $result = $this->tryIdmLink(false, true, false);
+        $result = $this->tryIdmLink(false, false, false);
 
         if (is_array($result) && isset($result['status'])) {
             $backTo = Yii::$app->session->get('backTo');
@@ -135,26 +133,22 @@ class ShibbolethController extends BackendController
 
         return false;
     }
-
+    
+    /**
+     * @return \yii\base\View|\yii\web\Response|\yii\web\View
+     */
     public function actionMobile()
     {
         $result = $this->tryIdmLink(false, true, false);
-
-        if (is_array($result) && isset($result['status'])) {
+        if (is_array($result) && isset($result['status']) || !\Yii::$app->user->isGuest) {
+            if ($result['status'] == 'autoregistration') {
+                return $this->redirect(['/admin/security/register', 'confirm' => true, 'from-shibboleth' => true, 'mobile' => true]);
+            }
             $user = \open20\amos\mobile\bridge\modules\v1\models\User::findOne(Yii::$app->user->id);
             $user->refreshAccessToken('', '');
-
             return $this->redirect(['/socialauth/social-auth/land', 'token' => $user->getAccessToken()]);
-        } else {
-            $sessionIdm = \Yii::$app->session->get('IDM');
-            return $this->redirect(['/socialauth/social-auth/land',
-//                'urlRedirect' => '/admin/security/register?confirm=1&from-shibboleth=1&sessionIdm='.serialize($sessionIdm),
-                'urlRedirect' => '/admin/security/register?confirm=1&from-shibboleth=1',
-                'redirectToRegister' => true,
-                'error' => true,
-                'errorMessage' => Yii::t('socialauth', 'Non Sei Registrato Nella Piattaforma'),
-            ]);
         }
+        return $this->view;
     }
 
     /**
@@ -179,7 +173,6 @@ class ShibbolethController extends BackendController
             }
             return $procedure;
         }
-
         // VarDumper::dump( $procedure, $depth = 10, $highlight = true); die;
 
         if ($redirect) {
@@ -201,6 +194,9 @@ class ShibbolethController extends BackendController
                     }
                     break;
                 case 'autoregistration':
+                    if (!empty($urlRedirectPersonalized)) {
+                        return $this->redirect($urlRedirectPersonalized);
+                    }
                     return $this->redirect(['/' . $adminModule->id . '/security/register', 'confirm' => true, 'from-shibboleth' => true]);
                     break;
                 case 'disabled':
@@ -212,7 +208,13 @@ class ShibbolethController extends BackendController
             return $procedure;
         }
     }
-
+    
+    /**
+     * @param bool $confirmLink
+     * @param bool $render
+     * @return array|string|string[]
+     * @throws \yii\base\InvalidConfigException
+     */
     protected function procedure($confirmLink = false, $render = true)
     {
         //Store data into session
@@ -220,6 +222,10 @@ class ShibbolethController extends BackendController
 
         //Find for existing relation
         $relation = SocialIdmUser::findOne(['numeroMatricola' => $userDatas['matricola']]);
+    
+        /** @var Module $socialAuthModule */
+        $socialAuthModule = Module::instance();
+        $checkOnlyFiscalCode = $socialAuthModule->checkOnlyFiscalCode;
 
         //Find by other attributes
         $usersByCF = [];
@@ -232,11 +238,10 @@ class ShibbolethController extends BackendController
 
         /** @var UserProfile|null $existsByFC */
         $existsByFC = (($countUsersByCF == 1) ? reset($usersByCF) : null);
-        $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
-
-        /** @var Module $socialAuthModule */
-        $socialAuthModule = Module::instance();
-        $adminModule = AmosAdmin::getInstance();
+        $existsByEmail = null;
+        if (!$checkOnlyFiscalCode) {
+            $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
+        }
 
         //Get timeout for app login
         $loginTimeout = \Yii::$app->params['loginTimeout'] ?: 3600;
@@ -277,7 +282,7 @@ class ShibbolethController extends BackendController
             if ($this->isUserDisabled($relation->user_id)) {
                 return ['status' => 'disabled', 'user_id' => $relation->user_id];
             }
-//pr($relation->user_id);die;
+            
             //Store IDM user
             $this->createIdmUser($userDatas, $relation->user_id);
 
@@ -312,10 +317,10 @@ class ShibbolethController extends BackendController
         } elseif (($relation && $relation->id) && !\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
                 \Yii::$app->session->addFlash('warning', Module::t('amossocialauth','La tua identità digitale è già associata ad un altro account'));
                 \Yii::$app->session->remove('IDM');
-//            pr('b');
+                
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
-        } elseif ($existsByEmail && $existsByEmail->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest() && !$confirmLink) {
+        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest() && !$confirmLink) {
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
             if ($socialAuthModule->shibbolethAutoLogin || !$render) {
 
@@ -334,7 +339,7 @@ class ShibbolethController extends BackendController
                 'userProfile' => $existsByEmail->profile,
                 'authType' => $this->authType,
             ]);
-        } elseif ($existsByEmail && $existsByEmail->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest() && $confirmLink) {
+        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && \open20\amos\core\utilities\CurrentUser::isPlatformGuest() && $confirmLink) {
             if ($socialAuthModule->disableAssociationByEmail) {
                 \Yii::$app->getSession()->addFlash('danger', Module::t('amossocialauth', 'User already registered in the system'));
                 return ['status' => 'disabled-autologin'];
@@ -352,12 +357,11 @@ class ShibbolethController extends BackendController
 
             return ['status' => 'conf'];
             //return $this->redirect(['/', 'done' => 'conf']);
-        } elseif (\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
+        } elseif (\Yii::$app->user->isGuest && $render) {
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
             if ($socialAuthModule->shibbolethAutoRegistration || !$render) {
                 return ['status' => 'autoregistration'];
             }
-
 
             //Form to confirm identity and log-in
             return $this->render('ask-signup', [
@@ -368,7 +372,6 @@ class ShibbolethController extends BackendController
             //Store IDM user
             $this->createIdmUser($userDatas);
             \Yii::$app->session->remove('connectSpidToProfile');
-
 
             return ['status' => 'override'];
             //return $this->redirect(['/', 'done' => 'override']);
@@ -466,8 +469,6 @@ class ShibbolethController extends BackendController
                 'codiceFiscale' => $codiceFiscale,
                 'rawData' => $rawData
             ];
-
-//            pr($sessionIDM);die;
 
             //Store to session
             \Yii::$app->session->set('IDM', $sessionIDM);

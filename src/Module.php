@@ -118,6 +118,11 @@ class Module extends AmosModule implements BootstrapInterface
     public $disableAssociationByEmail = false;
 
     /**
+     * @var bool $checkOnlyFiscalCode
+     */
+    public $checkOnlyFiscalCode = false;
+
+    /**
      * @inheritdoc
      */
     public function init()
@@ -306,6 +311,10 @@ class Module extends AmosModule implements BootstrapInterface
      */
     public function bootstrap($app)
     {
+        if (Yii::$app instanceof yii\console\Application) {
+            return true;
+        }
+        
         //Init a new shibboleth controller to link user
         $shibbolethController = new ShibbolethController('shibboleth', $this);
 
@@ -314,15 +323,16 @@ class Module extends AmosModule implements BootstrapInterface
         //Get Session IDM datas (copy of headers)
         $sessionIDM = \Yii::$app->session->get('IDM');
 
+        //Trigger ad evento
+        if($this->shibbolethConfig['backgroundLogin']) {
+            Yii::$app->on('BEFORE_LOGIN_FORM', [ShibbolethController::className(), 'backgroundLogin']);
+        }
+
         //Link to current user with IDM
         if ($sessionIDM && $sessionIDM['matricola']) {
             return $shibbolethController->tryIdmLink('idm', $sessionIDM, false, false);
         } else if ($sessionIDM && $sessionIDM['saml-attribute-codicefiscale']) {
             return $shibbolethController->tryIdmLink('spid', $sessionIDM, false, false);
-        }
-
-        if($this->shibbolethConfig['backgroundLogin']) {
-            Yii::$app->on('BEFORE_LOGIN_FORM', [ShibbolethController::className(), 'backgroundLogin']);
         }
     }
     
