@@ -335,6 +335,11 @@ class ShibbolethController extends BackendController
                     $codiceFiscale = $dataFetch->get('saml_attribute_codicefiscale') ?: $dataFetch->get('saml-attribute-codicefiscale');
                 }
             }
+    
+            if (strpos($codiceFiscale, 'TINIT-') !== false) {
+                $spliCF = explode('-', $codiceFiscale);
+                $codiceFiscale = end($spliCF);
+            }
 
             //Data to store in session in case header is not filled
             $sessionIDM = [

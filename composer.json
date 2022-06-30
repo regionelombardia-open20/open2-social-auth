@@ -2,7 +2,7 @@
     "name": "open20/amos-social-auth",
     "description": "Social Auth",
     "keywords": ["amos", "auth", "social", "yii2"],
-    "homepage": "https://bitbucket.org/elite_division/amos-social-auth",
+    "homepage": "https://bitbucket.org/open20/amos-social-auth",
     "type": "component",
     "require": {
         "php": ">=5.4.0",
