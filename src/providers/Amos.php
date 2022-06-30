@@ -20,6 +20,14 @@ class Amos extends OAuth2 {
     protected $scope = 'userinfo.profile';
 
     /**
+     * Define codes for tags tree to syncronize, for ex. 'ambiti-tecnologici'
+     *
+     * @var array $syncronizeTagsTreeCode array of tagsTree codes on taget platform to retrieve
+     */
+    public $syncronizeTagsTreeCodes = [];
+
+
+    /**
      * {@inheritdoc}
      */
     protected $apiBaseUrl = '';
@@ -61,8 +69,13 @@ class Amos extends OAuth2 {
         $this->tokenRefreshParameters['client_secret'] = $this->clientSecret;
 
         if (isset($configs['redirect_uri']) && !empty($configs['redirect_uri'])) {
-            $this->api->redirect_uri = $configs['redirect_uri'];
+            $this->setCallback($configs['redirect_uri']);
         }
+
+        // Define TagsTree to syncronize on target platform
+        $this->syncronizeTagsTreeCodes = $this->config->get('syncronizeTagsTreeCodes')
+            ? $this->config->get('syncronizeTagsTreeCodes')
+            : [];
     }
 
     /**
@@ -73,7 +86,7 @@ class Amos extends OAuth2 {
         $configs = $this->config->toArray();
 
         $parameters = array("scope" => $this->scope, "access_type" => "offline");
-        $optionals = array("scope", "access_type", "redirect_uri", "approval_prompt", "hd", "state");
+        $optionals = array("scope", "access_type", "redirect_uri", "approval_prompt", "hd", "state", 'tagstree');
 
         foreach ($optionals as $parameter) {
             if (isset($configs[$parameter]) && !empty($configs[$parameter])) {
@@ -88,6 +101,10 @@ class Amos extends OAuth2 {
             $parameters['approval_prompt'] = 'force';
         }
 
+        if ($this->syncronizeTagsTreeCodes != []) {
+            $parameters['tagstree'] = json_encode($this->syncronizeTagsTreeCodes);
+        }
+
         \Hybrid_Auth::redirect($this->api->authorizeUrl($parameters));
     }
 
@@ -98,24 +115,27 @@ class Amos extends OAuth2 {
         // refresh tokens if needed
         $this->refreshAccessToken();
 
-        $response = $this->apiRequest(
-            "{$this->protocol}://{$this->domain}/socialauth/oauth2/userinfo"
-        );
+        $userInfoUrl = $this->addUrlParam("{$this->protocol}://{$this->domain}/socialauth/oauth2/userinfo", [
+            'tagstree' => $this->syncronizeTagsTreeCodes
+        ]);
+
+        $response = $this->apiRequest($userInfoUrl);
 
         if (!isset($response->sub) || isset($response->error)) {
             throw new \Exception("User profile request failed! {$this->providerId} returned an invalid response:" . \Hybrid_Logger::dumpData( $response ), 6);
         }
 
         $this->user->profile->identifier = (property_exists($response, 'sub')) ? $response->sub : "";
-        $this->user->profile->firstName = (property_exists($response, 'given_name')) ? $response->given_name : "";
+        $this->user->profile->firstName = (property_exists($response, 'name')) ? $response->name : "";
         $this->user->profile->lastName = (property_exists($response, 'family_name')) ? $response->family_name : "";
-        $this->user->profile->displayName = (property_exists($response, 'name')) ? $response->name : "";
+        $this->user->profile->displayName = (property_exists($response, 'given_name')) ? $response->given_name : "";
         $this->user->profile->photoURL = (property_exists($response, 'picture')) ? $response->picture : "";
         $this->user->profile->profileURL = (property_exists($response, 'profile')) ? $response->profile : "";
         $this->user->profile->gender = (property_exists($response, 'gender')) ? $response->gender : "";
         $this->user->profile->language = (property_exists($response, 'locale')) ? $response->locale : "";
         $this->user->profile->email = (property_exists($response, 'email')) ? $response->email : "";
         $this->user->profile->emailVerified = (property_exists($response, 'email_verified')) ? ($response->email_verified === true || $response->email_verified === 1 ? $response->email : "") : "";
+        $this->user->profile->tagscode = $response->tagscode;
 
         return $this->user->profile;
     }

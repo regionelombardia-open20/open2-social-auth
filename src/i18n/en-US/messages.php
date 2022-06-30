@@ -34,6 +34,7 @@ return [
     'Unable to register, permission denied' => 'Unable to register, permission denied',
     'Unable to register, user creation error' => 'Unable to register, user creation error',
     'Unable to store image file, try again' => 'Unable to store image file, try again',
+    'User already registered in the system' =>  'User already registered in the system',
     'User deactivated. To log in again, request reactivation of the profile.' => 'User deactivated. To log in again, request reactivation of the profile.',
     'User ID' => 'User ID',
     'User Not Found, Please try with Other User' => 'User Not Found, Please try with Other User',
@@ -57,4 +58,6 @@ return [
     'spid_signup_register' => 'or:',
     'spid_signup_register2' => 'proceed with a new registration',
     'spid_signup_register_btn' => 'Sign in',
+    "La tua identità digitale è già associata ad un altro account" => "Your digital identity is already associated to another account."
+
 ];

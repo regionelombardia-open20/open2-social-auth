@@ -37,6 +37,7 @@ return [
     'Unable to register, permission denied' => 'Impossibile registrarsi, permesso negato',
     'Unable to register, user creation error' => 'Impossibile registrarsi, errore creazione utente piattaforma',
     'Unable to store image file, try again' => 'Impossibile salvare l\'immagine dell\'utente, procedura annullata',
+    'User already registered in the system' => 'Utente già registrato a sistema',
     'User deactivated. To log in again, request reactivation of the profile.' => 'Utente disattivato. Per loggarsi di nuovo, richiedere la riattivazione del profilo.',
     'User ID' => 'ID Utente',
     'User Not Found, Please try with Other User' => 'Utente non trovato, riprova con un\'altro Utente',
@@ -63,4 +64,6 @@ return [
     'spid_signup_register2' => 'procedi con una nuova registrazione',
     'spid_signup_register_btn' => 'Registrati',
     'spid_go_to_login_btn' => 'Vai al login',
+    "La tua identità digitale è già associata ad un altro account" => "La tua identità digitale è già associata ad un altro account"
+
 ];

@@ -55,7 +55,7 @@ class SocialAuthUtility
      */
     public static function createIdmUser($userDatas, $user_id = null)
     {
-        $userId = (!\Yii::$app->user->isGuest ? \Yii::$app->user->id : 0);
+        $userId = (!\open20\amos\core\utilities\CurrentUser::isPlatformGuest() ? \Yii::$app->user->id : 0);
 
         if(!empty($user_id)){
             $userId = $user_id;
@@ -99,8 +99,8 @@ class SocialAuthUtility
             $socialIdmUser->user_id = $userId;
         }
 
-        $socialIdmUser->accessMethod = reset($userDatas['rawData']['saml_attribute_originedatiutente']);
-        $socialIdmUser->accessLevel = reset($userDatas['rawData']['saml_attribute_tipoautenticazione']);
+        $socialIdmUser->accessMethod = reset($userDatas['rawData']['saml-attribute-originedatiutente']);
+        $socialIdmUser->accessLevel = reset($userDatas['rawData']['saml-attribute-tipoautenticazione']);
         $socialIdmUser->rawData = serialize($userDatas['rawData']);
         $ok = $socialIdmUser->save(false);
 
@@ -119,7 +119,6 @@ class SocialAuthUtility
         return $ok;
     }
 
-
     /**
      * @param int $userId
      * @param string $fiscalCode
@@ -128,7 +127,22 @@ class SocialAuthUtility
     public static function updateFiscalCode($userId, $fiscalCode)
     {
         $user = UserProfile::findOne(['user_id' => $userId]);
-        $user->codice_fiscale = $fiscalCode;
-        return $user->save(false);
+
+        if($user instanceof UserProfile) {
+            $user->codice_fiscale = $fiscalCode;
+            return $user->save(false);
+        }
+
+        return false;
+    }
+    
+    /**
+     * @param int $userId
+     * @return SocialIdmUser|null
+     */
+    public static function findSocialIdmByUserId($userId)
+    {
+        $socialIdmUser = SocialIdmUser::findOne(['user_id' => $userId]);
+        return $socialIdmUser;
     }
 }

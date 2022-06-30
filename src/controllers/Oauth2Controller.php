@@ -133,7 +133,7 @@ class Oauth2Controller extends CrudController
     {
         $this->setUpLayout('list');
 
-        //se il layout di default non dovesse andar bene si può aggiuntere il layout desiderato
+        //se il layout di default non dovesse andar bene si può aggiungere il layout desiderato
         //in questo modo nel controller "return parent::actionIndex($this->layout);"
         if ($layout) {
             $this->setUpLayout($layout);
@@ -178,18 +178,61 @@ class Oauth2Controller extends CrudController
 
     public function actionUserinfo()
     {
-        $userProfile = UserProfile::findOne(['user_id' => Yii::$app->user->id]);
+        //        $userProfile = UserProfile::findOne(Yii::$app->user->id);
+        $userProfile = UserProfile::find()->andWhere(['user_id' => Yii::$app->user->id])->one();
+
+        // need to syncro tags too?
+        $tagsTreeCodes = \Yii::$app->request->get('tagstree');
+        $tagCodes = [];
+        if (!empty($tagsTreeCodes)) {
+            $moduleTag = \Yii::$app->getModule('tag');
+            if (isset($moduleTag)) {
+                $rootTagNode = \open20\amos\tag\models\Tag::find()
+                    ->select(['root', 'codice', 'deleted_at'])
+                    ->where([
+                        'codice' => $tagsTreeCodes,
+                        'deleted_at' => null
+                    ])
+                    ->one();
+
+                if (!empty($rootTagNode)) {
+                    $cwhTable = \open20\amos\cwh\models\CwhTagOwnerInterestMm::tableName();
+                    $tagTable = \open20\amos\tag\models\Tag::tableName();
+
+                     $tagCodes = \open20\amos\tag\models\Tag::find()
+                        ->select([
+                            $tagTable . '.id',  $tagTable .'.codice',  $tagTable . '.deleted_at',
+                            $tagTable . '.lvl',  $tagTable . '.root',
+                            $cwhTable . '.id', $cwhTable . '.tag_id', $cwhTable . '.record_id', $cwhTable . '.deleted_at'
+                        ])
+                        ->join('JOIN', $cwhTable, $tagTable . '.id = ' . $cwhTable . '.tag_id')
+                        ->andwhere([$cwhTable . '.record_id' => $userProfile->id])
+                        ->andWhere(['!=', $tagTable .'.lvl', 0])
+                        ->andWhere([$tagTable . '.root' => $rootTagNode->root])
+                        ->andWhere([$tagTable . '.deleted_at' => null])
+                        ->andWhere([$cwhTable . '.deleted_at' => null])
+                        ->all();
+
+                    $tmp = [];
+                    foreach($tagCodes as $code) {
+                       $tmp[] = $code->codice;
+                    }
+                    $tagCodes = $tmp;
+              }
+            }
+        }
 
         return [
-                'sub' => $userProfile->id,
-                'given_name' => $userProfile->user->username,
-                'family_name' => $userProfile->cognome,
-                'name' => $userProfile->nome,
-                'picture' => $userProfile ? $userProfile->getAvatarWebUrl() : null,
-                'profile' => '',
-                'gender' => $userProfile->sesso,
-                'locale' => $userProfile->language,
-                'email' => $userProfile->user->email
-            ];
+            'sub' => $userProfile->id,
+            'given_name' => $userProfile->user->username,
+            'family_name' => $userProfile->cognome,
+            'name' => $userProfile->nome,
+            'picture' => $userProfile ? $userProfile->getAvatarWebUrl() : null,
+            'profile' => '',
+            'gender' => $userProfile->sesso,
+            'locale' => $userProfile->language,
+            'email' => $userProfile->user->email,
+            'tagscode' => $tagCodes
+        ];
     }
 }

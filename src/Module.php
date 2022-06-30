@@ -16,6 +16,7 @@ use open20\amos\admin\models\UserProfile;
 use open20\amos\core\module\AmosModule;
 use open20\amos\socialauth\controllers\ShibbolethController;
 use open20\amos\socialauth\models\SocialAuthServices;
+use open20\amos\socialauth\models\SocialIdmUser;
 use open20\amos\socialauth\utility\SocialAuthUtility;
 use Yii;
 use yii\base\BootstrapInterface;
@@ -47,7 +48,9 @@ class Module extends AmosModule implements BootstrapInterface
 
     public $shibbolethConfig = [
         'buttonLabel' => '#fullsize_login_spid_text',
-        'buttonDescription' => '#fullsize_login_spid_text_right'
+        'buttonDescription' => '#fullsize_login_spid_text_right',
+        'backgroundLogin' => false,
+        'backgroundLoginDomains' => []
     ];
 
     /**
@@ -314,8 +317,22 @@ class Module extends AmosModule implements BootstrapInterface
         //Link to current user with IDM
         if ($sessionIDM && $sessionIDM['matricola']) {
             return $shibbolethController->tryIdmLink('idm', $sessionIDM, false, false);
-        } else if ($sessionIDM && $sessionIDM['saml_attribute_codicefiscale']) {
+        } else if ($sessionIDM && $sessionIDM['saml-attribute-codicefiscale']) {
             return $shibbolethController->tryIdmLink('spid', $sessionIDM, false, false);
         }
+
+        if($this->shibbolethConfig['backgroundLogin']) {
+            Yii::$app->on('BEFORE_LOGIN_FORM', [ShibbolethController::className(), 'backgroundLogin']);
+        }
+    }
+    
+    /**
+     * This method find the association between the platform user and the social idm user (SPID).
+     * @param int $userId
+     * @return SocialIdmUser|null
+     */
+    public function findSocialIdmByUserId($userId)
+    {
+        return SocialAuthUtility::findSocialIdmByUserId($userId);
     }
 }
