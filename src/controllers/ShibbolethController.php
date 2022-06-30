@@ -359,7 +359,7 @@ class ShibbolethController extends BackendController
             }
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
-        } elseif (($relation && $relation->id) && !$isGuestUser) {
+        } elseif (($relation && $relation->id) && (!$isGuestUser && $relation->user_id =!\Yii::$app->user->id)) {
                 \Yii::$app->session->addFlash('warning', Module::t('amossocialauth','La tua identità digitale è già associata ad un altro account'));
                 \Yii::$app->session->remove('IDM');
                 
