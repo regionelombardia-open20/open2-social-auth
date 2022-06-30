@@ -173,10 +173,19 @@ class ShibbolethController extends BackendController
     {
         $procedure = $this->procedure($confirmLink, $render);
         $adminModule = AmosAdmin::getInstance();
+
         $urlRedirectPersonalized = \Yii::$app->session->get('redirect_url_spid');
+        $urlRedirectPostReg = \Yii::$app->session->get('redirect_post_reg');
         if (!empty($urlRedirectPersonalized)) {
+            //redirect personalized
             $redirect = true;
             \Yii::$app->session->remove('redirect_url_spid');
+        } elseif (!empty($urlRedirectPostReg)) {
+            //redirect personalized with autoregistration enabled
+            if($procedure['status'] != 'autoregistration') {
+                $urlRedirectPersonalized = $urlRedirectPostReg;
+            }
+            $redirect = true;
         }
 
         if (!is_array($procedure)) {
@@ -515,6 +524,11 @@ class ShibbolethController extends BackendController
                     default:
                         $matricola = $dataFetch->get('saml-attribute-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
                 }
+            }
+    
+            if (strpos($codiceFiscale, 'TINIT-') !== false) {
+                $spliCF = explode('-', $codiceFiscale);
+                $codiceFiscale = end($spliCF);
             }
 
             //Data to store in session in case header is not filled
