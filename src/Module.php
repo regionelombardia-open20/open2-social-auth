@@ -168,6 +168,12 @@ class Module extends AmosModule implements BootstrapInterface
     public $enableReconciliation = false;
 
     /**
+     * If set to true it uses basic authentication
+     * @var type
+     */
+    public $useBasicAuthAgidLogin = true;
+
+    /**
      * @inheritdoc
      */
     public function init()
@@ -230,7 +236,7 @@ class Module extends AmosModule implements BootstrapInterface
      */
     public static function getInstance()
     {
-        if (Yii::$app->session->has('socialAuthInstance')) {
+        if (Yii::$app->has('session') && Yii::$app->session->has('socialAuthInstance')) {
             return Yii::$app->getModule(Yii::$app->session->get('socialAuthInstance'));
         }
 
