@@ -176,9 +176,9 @@ class Oauth2Controller extends CrudController
         }
     }
 
-    public function actionUserinfo($access_token)
+    public function actionUserinfo()
     {
-        $userProfile = UserProfile::findOne(Yii::$app->user->id);
+        $userProfile = UserProfile::findOne(['user_id' => Yii::$app->user->id]);
 
         return [
                 'sub' => $userProfile->id,

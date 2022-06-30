@@ -108,8 +108,11 @@ class Module extends AmosModule implements BootstrapInterface
      * @var bool $shibbolethAutoRegistration if true on shibboleth controller make automatic registration
      */
     public $shibbolethAutoRegistration = false;
-    
-    public $checkOnlyFiscalCode= false;
+
+    /**
+     * @var bool
+     */
+    public $disableAssociationByEmail = false;
 
     /**
      * @inheritdoc
@@ -314,15 +317,5 @@ class Module extends AmosModule implements BootstrapInterface
         } else if ($sessionIDM && $sessionIDM['saml_attribute_codicefiscale']) {
             return $shibbolethController->tryIdmLink('spid', $sessionIDM, false, false);
         }
-    }
-    
-    /**
-     * This method find the association between the platform user and the social idm user (SPID).
-     * @param int $userId
-     * @return SocialIdmUser|null
-     */
-    public function findSocialIdmByUserId($userId)
-    {
-        return SocialAuthUtility::findSocialIdmByUserId($userId);
     }
 }

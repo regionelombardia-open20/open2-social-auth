@@ -111,6 +111,16 @@ class SocialAuthUtility
     }
 
     /**
+     * @param $user_id
+     * @return int
+     */
+    public static function disconnectIdm($user_id){
+        $ok = SocialIdmUser::deleteAll(['user_id' => $user_id]);
+        return $ok;
+    }
+
+
+    /**
      * @param int $userId
      * @param string $fiscalCode
      * @return bool
@@ -121,15 +131,4 @@ class SocialAuthUtility
         $user->codice_fiscale = $fiscalCode;
         return $user->save(false);
     }
-    
-    /**
-     * @param int $userId
-     * @return SocialIdmUser|null
-     */
-    public static function findSocialIdmByUserId($userId)
-    {
-        $socialIdmUser = SocialIdmUser::findOne(['user_id' => $userId]);
-        return $socialIdmUser;
-    }
-    
 }

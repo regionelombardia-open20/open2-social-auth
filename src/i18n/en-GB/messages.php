@@ -41,6 +41,8 @@ return [
     'spid_login_welcome' => 'Users found',
     'spid_login_subtitle' => 'A user matching the email address was found<br><strong>{email}</strong> used for SPID access.<br>Please check the following information and confirm your identity.',
     'spid_login_subtitle_cns' => 'A user matching the email address was found<br><strong>{email}</strong> used for CNS access.<br>Please check the following information and confirm your identity.',
+    'spid_login_subtitle_no_autoassign' => 'A user matching the email address was found<br><strong>{email}</strong> used for SPID access.<br>Please check the following information and confirm your identity.',
+    'spid_login_subtitle_cns_no_autoassign' => 'A user matching the email address was found<br><strong>{email}</strong> used for CNS access.<br>Please check the following information and confirm your identity.',
     'spid_login_user_data' => 'User data',
     '#spid_login_multi_cf_subtitle' => 'The following users were found<br>with the social security number <strong>{cf}</strong>.<br>With which user do you want to access Cruscotto Lavoro?',
     'spid_login_name' => 'Name',
@@ -57,4 +59,6 @@ return [
     'spid_signup_register' => 'or:',
     'spid_signup_register2' => 'proceed with a new registration',
     'spid_signup_register_btn' => 'Sign in',
+    'spid_go_to_login_btn' => 'Go to login',
+
 ];

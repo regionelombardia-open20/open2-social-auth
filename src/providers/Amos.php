@@ -1,48 +1,90 @@
 <?php
 namespace open20\amos\socialauth\providers;
 
-class Amos extends \Hybrid_Provider_Model_OAuth2 {
-    public $scope = "userinfo.profile";
+use Hybridauth\Adapter\OAuth2;
 
-    public $domain;
-    public $protocol='https';
+class Amos extends OAuth2 {
+    /**
+     * {@inheritdoc}
+     */
+    protected $domain;
 
     /**
      * {@inheritdoc}
      */
-    function initialize() {
+    protected $protocol='https';
+
+    /**
+     * {@inheritdoc}
+     */
+    protected $scope = 'userinfo.profile';
+
+    /**
+     * {@inheritdoc}
+     */
+    protected $apiBaseUrl = '';
+
+    /**
+     * {@inheritdoc}
+     */
+    protected $authorizeUrl = '';
+
+    /**
+     * {@inheritdoc}
+     */
+    protected $accessTokenUrl = '';
+
+    /**
+     * {@inheritdoc}
+     */
+    protected $accessTokenInfoUrl = '';
+
+    /**
+     * {@inheritdoc}
+     */
+    public function initialize() {
         parent::initialize();
 
+        //Provider configs from the collection
+        $configs = $this->config->toArray();
+
         //Pull work domain
-        $this->domain = $this->config['wrapper']['domain'];
+        $this->domain = $configs['wrapper']['domain'];
 
         // Provider api end-points
-        $this->api->authorize_url = "{$this->protocol}://{$this->domain}/socialauth/oauth2/auth";
-        $this->api->token_url = "{$this->protocol}://{$this->domain}/socialauth/oauth2/token";
-        $this->api->token_info_url = "{$this->protocol}://{$this->domain}/socialauth/oauth2/tokeninfo";
+        $this->authorizeUrl = "{$this->protocol}://{$this->domain}/socialauth/oauth2/auth";
+        $this->accessTokenUrl = "{$this->protocol}://{$this->domain}/socialauth/oauth2/token";
+        $this->accessTokenInfoUrl = "{$this->protocol}://{$this->domain}/socialauth/oauth2/tokeninfo";
 
-        if (isset($this->config['redirect_uri']) && !empty($this->config['redirect_uri'])) {
-            $this->api->redirect_uri = $this->config['redirect_uri'];
+
+        $this->tokenRefreshParameters['client_id'] = $this->clientId;
+        $this->tokenRefreshParameters['client_secret'] = $this->clientSecret;
+
+        if (isset($configs['redirect_uri']) && !empty($configs['redirect_uri'])) {
+            $this->api->redirect_uri = $configs['redirect_uri'];
         }
     }
 
     /**
      * {@inheritdoc}
      */
-    function loginBegin() {
+    public function loginBegin() {
+        //Provider configs from the collection
+        $configs = $this->config->toArray();
+
         $parameters = array("scope" => $this->scope, "access_type" => "offline");
         $optionals = array("scope", "access_type", "redirect_uri", "approval_prompt", "hd", "state");
 
         foreach ($optionals as $parameter) {
-            if (isset($this->config[$parameter]) && !empty($this->config[$parameter])) {
-                $parameters[$parameter] = $this->config[$parameter];
+            if (isset($configs[$parameter]) && !empty($configs[$parameter])) {
+                $parameters[$parameter] = $configs[$parameter];
             }
-            if (isset($this->config["scope"]) && !empty($this->config["scope"])) {
-                $this->scope = $this->config["scope"];
+            if (isset($configs["scope"]) && !empty($configs["scope"])) {
+                $this->scope = $configs["scope"];
             }
         }
 
-        if (isset($this->config['force']) && $this->config['force'] === true) {
+        if (isset($configs['force']) && $configs['force'] === true) {
             $parameters['approval_prompt'] = 'force';
         }
 
@@ -52,11 +94,13 @@ class Amos extends \Hybrid_Provider_Model_OAuth2 {
     /**
      * {@inheritdoc}
      */
-    function getUserProfile() {
+    public function getUserProfile() {
         // refresh tokens if needed
-        $this->refreshToken();
+        $this->refreshAccessToken();
 
-        $response = $this->api->api("{$this->protocol}://{$this->domain}/socialauth/oauth2/userinfo");
+        $response = $this->apiRequest(
+            "{$this->protocol}://{$this->domain}/socialauth/oauth2/userinfo"
+        );
 
         if (!isset($response->sub) || isset($response->error)) {
             throw new \Exception("User profile request failed! {$this->providerId} returned an invalid response:" . \Hybrid_Logger::dumpData( $response ), 6);
@@ -83,7 +127,7 @@ class Amos extends \Hybrid_Provider_Model_OAuth2 {
      * @param array  $params Parameters to add
      * @return string
      */
-    function addUrlParam($url, array $params){
+    public function addUrlParam($url, array $params){
         $query = parse_url($url, PHP_URL_QUERY);
 
         // Returns the URL string with new parameters

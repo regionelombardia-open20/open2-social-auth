@@ -41,6 +41,7 @@ use open20\amos\core\user\User;
  * @property string $idComuneRegistrazione
  * @property string $accessMethod
  * @property string $accessLevel
+ * @property string $rawData
  * @property User $user User
  */
 class SocialIdmUser extends \yii\db\ActiveRecord
@@ -93,6 +94,9 @@ class SocialIdmUser extends \yii\db\ActiveRecord
                 'accessMethod',
                 'accessLevel'
             ], 'string', 'max' => 255],
+            [[
+                'rawData'
+            ], 'string'],
             [['user_id'], 'integer'],
         ];
     }

@@ -15,13 +15,17 @@ use open20\amos\admin\AmosAdmin;
 use open20\amos\admin\models\UserProfile;
 use open20\amos\attachments\components\FileImport;
 use open20\amos\core\controllers\BackendController;
+use open20\amos\core\forms\editors\AmosDatePicker;
 use open20\amos\core\user\User;
 use open20\amos\mobile\bridge\modules\v1\models\AccessTokens;
 use open20\amos\socialauth\models\SocialAuthUsers;
 use open20\amos\socialauth\Module;
+use Hybridauth\Adapter\AbstractAdapter;
+use Hybridauth\User\Profile;
 use Yii;
 use yii\base\Exception;
 use yii\filters\AccessControl;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
 
 /**
@@ -34,6 +38,11 @@ class SocialAuthController extends BackendController
      * @var string $layout
      */
     public $layout = 'login';
+
+    /**
+     * @var $userProfile Profile
+     */
+    protected $userProfile;
 
     /**
      * @inheritdoc
@@ -62,6 +71,7 @@ class SocialAuthController extends BackendController
                             'sign-up',
                             'mobile',
                             'land',
+                            'get-user-social'
                         ],
                         //'roles' => ['*']
                     ]
@@ -75,10 +85,20 @@ class SocialAuthController extends BackendController
      */
     public function init()
     {
-
         parent::init();
         $this->setUpLayout();
         // custom initialization code goes here
+    }
+
+    /**
+     *
+     * @param Action $action
+     * @return bool
+     */
+    public function beforeAction($action)
+    {
+        $this->enableCsrfValidation = false;
+        return parent::beforeAction($action);
     }
 
     /**
@@ -86,119 +106,42 @@ class SocialAuthController extends BackendController
      *
      * @param $action
      * @param $provider
-     * @return \Hybrid_Endpoint
      */
-    public function actionEndpoint($action, $provider)
+    public function actionEndpoint($provider = null, $action = null, $backTo = null, $redirectTo = null)
     {
-        $key = 'hauth_' . $action; // either `hauth_start` or `hauth_done`
-        $_REQUEST[$key] = $provider; // provider will be something like `facebook` or `google`
-
-        $adapter = \Hybrid_Endpoint::process();
-
-        return $adapter;
-    }
-
-    /**
-     * @param $provider
-     * @param null $urlBase
-     * @return bool|\Hybrid_Provider_Adapter
-     */
-    public function authProcedure($provider, $urlBase = null)
-    {
-        /**
-         * @var $baseUrl string with the base url
-         */
-        if (!empty($urlBase)) {
-            $baseUrl = $urlBase;
-
-        } else {
-            $baseUrl = Yii::$app->request->getHostInfo();
-        }
-        $baseUrl = str_replace('http://',
-            'https://', $baseUrl);
+//        pr($redirectTo,'enpoint redir');
 
         /**
-         * @var $config array with all configurations
+         * @var $provider string
          */
-        $config = [
-            'base_url' => $baseUrl,
-            'providers' => $this->module->getProviders()
-        ];
+        $provider = $provider ?: \Yii::$app->session->get('socialAuthProvider');
 
         /**
-         * @var $callbackUrl string The full call back url to use in the provider
+         * @var $action string
          */
-        $callbackUrl = $baseUrl . '/socialauth/social-auth/endpoint';
+        $action = $action ?: \Yii::$app->session->get('socialAuthAction');
 
-        try {
-            /**
-             * @var $hybridauth \Hybrid_Auth
-             */
-            $hybridauth = new \Hybrid_Auth($config);
-        } catch (\Exception $e) {
-            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Login Failed'));
+        /**
+         * @var $backTo string
+         */
+        $backTo = $backTo ?: \Yii::$app->session->get('socialAuthBackTo');
 
-            return false;
+        //Get out, cant proceed without those infos
+//        pr($redirectTo,'redir');die;
+        if($redirectTo) {
+            \Yii::$app->session->set('redirectToSignIn', $redirectTo);
         }
 
-        /**
-         * @var $adapter \Hybrid_Provider_Adapter
-         */
-        $adapter = $hybridauth->authenticate($provider, [
-            'login_start' => $callbackUrl . '?action=start&provider=' . strtolower($provider),
-            'login_done' => $callbackUrl . '?action=done&provider=' . strtolower($provider),
-        ]);
-
-        return $adapter;
-    }
-
-    /**
-     * Login with social account
-     * @param $provider
-     * @return bool|\yii\web\Response
-     */
-    public function actionSignIn($provider, $redirects = true, $redirectTo = null)
-    {
-
-        $urlToRedirect = Yii::$app->getUser()->getReturnUrl('');
-        $community_id = \Yii::$app->request->get('community');
-
-        if (strpos($urlToRedirect, 'community/join') > 0) {
-            $urlToCommunity = \Yii::$app->getUrlManager()->createUrl($urlToRedirect);
-        } else {
-            $urlToCommunity = \Yii::$app->getUrlManager()->createUrl(['/community/join', 'id' => $community_id, 'subscribe' => 1]);
-        }
-
-        //Spid requirements
-        if ($provider == 'spid' && !\Yii::$app->request->get('signed')) {
-            return \Yii::$app->controller->redirect(Url::to(['/socialauth/spid/aslogin',
-                'provider' => 'spid',
-                'signed' => true,
-                'AuthId' => 'service-l1',
-                'ReturnTo' => Url::to(['/'], true)
-            ], true));
-        }
-
-        /**
-         * If the user is already logged in go to home
-         */
-        if (!\open20\amos\core\utilities\CurrentUser::isPlatformGuest() && $redirects) {
-            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Already Logged In'));
-
+        if(!$provider || (!$action && !$backTo)) {
             return $this->goHome();
+        } else {
+            \Yii::$app->session->set('socialAuthProvider', $provider);
+            \Yii::$app->session->set('socialAuthAction', $action);
+            \Yii::$app->session->set('socialAuthBackTo', $backTo);
         }
 
         /**
-         * If login is not enabled
-         */
-        if (!$this->module->enableLogin) {
-            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Social Login Disabled'));
-
-            return $this->goHome();
-        }
-
-        /**
-         * @var $adapter \Hybrid_Provider_Adapter
+         * @var $adapter AbstractAdapter
          */
         $adapter = $this->authProcedure($provider);
 
@@ -211,24 +154,142 @@ class SocialAuthController extends BackendController
         }
 
         /**
-         * @var $userProfile \Hybrid_User_Profile
+         * @var $userProfile Profile
          */
-        $userProfile = $adapter->getUserProfile();
+        $this->userProfile = $adapter->getUserProfile();
 
         /**
          * Kick off social user
          */
-        $adapter->logout();
+        $adapter->disconnect();
+
+        //Store profile in session for custom usage
+        \Yii::$app->session->set('socialAuthUserProfile', $this->userProfile);
+
+        //Custo  back to url
+        if($backTo) {
+            \Yii::$app->session->remove('socialAuthBackTo');
+            return $this->redirect($backTo);
+        } else {
+            //Standard flow for login/register/etc
+            return $this->runAction(
+                $action,
+                [
+                    'status' => 'prepare',
+                    'provider' => $provider,
+                ]
+            );
+        }
+    }
+
+    /**
+     * @param $provider
+     * @param null $urlBase
+     * @return bool|AbstractAdapter
+     */
+    public function authProcedure($provider, $callbackUrl = null)
+    {
+        //For history Rollback
+        Url::remember();
+
+        //Some Back-Compatibility things
+        if(Yii::$app->controller->module instanceof Module) {
+            /**
+             * @var $callbackUrl string The full call back url to use in the provider
+             */
+            $callbackUrl = $callbackUrl ?: Url::to(
+                [
+                    '/' . $this->module->id . '/social-auth/endpoint'
+                ],
+                'https'
+            );
+        } else {
+            //External Usage callback url
+            $callbackUrl = $callbackUrl ?: Url::current(Yii::$app->request->get(), 'https');
+        }
+
+        /**
+         * @var $config array with all configurations
+         */
+        $config = [
+            'callback' => $callbackUrl,
+            'providers' => $this->module->getProviders()
+        ];
+
+        try {
+            $hybridauth = new \Hybridauth\Hybridauth($config);
+        } catch (\Exception $e) {
+            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Login Failed'));
+
+            return false;
+        }
+
+        /**
+         * @var $adapter AbstractAdapter
+         */
+        $adapter = $hybridauth->authenticate($provider);
+
+        return $adapter;
+    }
+
+    /**
+     * Login with social account
+     * @param $provider
+     * @return bool|\yii\web\Response
+     */
+    public function actionSignIn($provider, $redirects = true, $redirectTo = null, $status = null)
+    {
+        $urlToRedirect = Yii::$app->getUser()->getReturnUrl('');
+        $community_id = \Yii::$app->request->get('community');
+
+        if (strpos($urlToRedirect, 'community/join') > 0) {
+            $urlToCommunity = \Yii::$app->getUrlManager()->createUrl($urlToRedirect);
+        } else {
+            $urlToCommunity = \Yii::$app->getUrlManager()->createUrl(
+                ['/community/join', 'id' => $community_id, 'subscribe' => 1]
+            );
+        }
+
+        /**
+         * If the user is already logged in go to home
+         */
+        if (!\open20\amos\core\utilities\CurrentUser::isPlatformGuest() && $redirects) {
+            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Already Logged In'));
+
+            return $this->goHome(['id' => 'logged']);
+        }
+
+        /**
+         * If login is not enabled
+         */
+        if (!$this->module->enableLogin) {
+            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Social Login Disabled'));
+
+            return $this->goHome(['id' => 'disabled']);
+        }
+        //Prepare procedure
+        if ($status == null && $redirects) {
+            return $this->redirect(
+                [
+                    'endpoint',
+                    'action' => $this->action->id,
+                    'provider' => $provider,
+                    'redirectTo' => $redirectTo
+                ]
+            );
+        }
+//        pr($redirectTo, 'signin');
+
 
         //Return direct result
         if (!$redirects) {
-            return $userProfile;
+            return $this->userProfile;
         }
 
         /**
          * @var $socialUser SocialAuthUsers
          */
-        $socialUser = SocialAuthUsers::findOne(['identifier' => $userProfile->identifier, 'provider' => $provider]);
+        $socialUser = SocialAuthUsers::findOne(['identifier' => $this->userProfile->identifier, 'provider' => $provider]);
 
         //Override default timeout
         $loginTimeout = Yii::$app->params['loginTimeout'] ?: 3600;
@@ -241,12 +302,17 @@ class SocialAuthController extends BackendController
              * If the user exists
              */
             if ($socialUser->user && $socialUser->user->id) {
-
                 //Check user deactivated
                 if ($socialUser->user->status == User::STATUS_DELETED) {
-                    Yii::$app->session->addFlash('danger', Module::t('amosadmin', 'User deactivated. To log in again, request reactivation of the profile.'));
-//                    return $this->goHome();
-                    return $this->goBack();
+                    Yii::$app->session->addFlash(
+                        'danger',
+                        Module::t(
+                            'amosadmin',
+                            'User deactivated. To log in again, request reactivation of the profile.'
+                        )
+                    );
+
+                    return $this->goHome(['id' => 'deleted']);
                 }
 
 
@@ -254,36 +320,43 @@ class SocialAuthController extends BackendController
 
                 // if google contact service enabled reload in session some contact data by google account
                 AmosAdmin::fetchGoogleContacts();
-
-                if ($redirectTo) {
-                    return $this->redirect($redirectTo);
-                } else if ($community_id) {
-                    return $this->redirect($urlToCommunity);
+                if(\Yii::$app->session->get('redirectToSignIn')){
+                    $redirectTo = \Yii::$app->session->get('redirectToSignIn');
                 }
 
-                return $this->goBack();
+
+                if ($redirectTo) {
+                    \Yii::$app->session->remove('redirectToSignIn');
+                    return $this->redirect($redirectTo);
+                } else {
+                    if ($community_id) {
+                        return $this->redirect($urlToCommunity);
+                    }
+                }
+
+                return $this->goHome(['id' => 'found']);
             } else {
                 Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to Login with this User'));
             }
 
-            return $this->goBack();
+            return $this->goHome(['id' => 'none']);
         } else {
             //Find for existing user with social email
             $q = User::find();
-            $q->where(['email' => $userProfile->email]);
-            $q->orWhere(['username' => $userProfile->email]);
+            $q->where(['email' => $this->userProfile->email]);
+            $q->orWhere(['username' => $this->userProfile->email]);
 
             $userMatchMail = $q->one();
 
             if ($userMatchMail && $userMatchMail->id) {
                 if (!$this->module->userOverload) {
                     Yii::$app->session->set('social-match', $provider);
-                    Yii::$app->session->set('social-profile', $userProfile);
+                    Yii::$app->session->set('social-profile', $this->userProfile);
 
-                    return $this->redirect('/'.AmosAdmin::getInstance()->id.'/security/login');
+                    return $this->redirect('/' . AmosAdmin::getInstance()->id . '/security/login');
                 } else {
                     //Link immediatelly to matched mail user
-                    $this->linkSocialToUser($provider, $userProfile, $userMatchMail->id);
+                    $this->linkSocialToUser($provider, $this->userProfile, $userMatchMail->id);
 
                     //Logijn to the platform
                     $signIn = Yii::$app->user->login($userMatchMail, $loginTimeout);
@@ -295,13 +368,13 @@ class SocialAuthController extends BackendController
                         return $this->redirect($urlToCommunity);
                     }
 
-                    return $this->goHome();
+                    return $this->goHome(['id' => 'match_mail']);
                 }
             } else {
                 Yii::$app->session->set('social-pending', $provider);
-                Yii::$app->session->set('social-profile', $userProfile);
+                Yii::$app->session->set('social-profile', $this->userProfile);
 
-                return $this->redirect('/'.AmosAdmin::getInstance()->id.'/security/register');
+                return $this->redirect('/' . AmosAdmin::getInstance()->id . '/security/register');
             }
             //Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'User Not Found, Please try with Other User'));
         }
@@ -311,35 +384,66 @@ class SocialAuthController extends BackendController
      * @param $provider
      * @return \yii\web\Response
      */
-    public function actionMobile($provider)
+    public function actionMobile($provider, $status = null)
     {
-        $userProfile = $this->actionSignIn($provider, false);
-
-        if (!($userProfile instanceof \Hybrid_User_Profile)) {
-            return $this->redirect(['/socialauth/social-auth/land', 'error' => true, 'errorMessage' => Yii::t('socialauth', 'Accesso Social Non Disponibile')]);
+        //Prepare procedure
+        if ($status == null) {
+            return $this->redirect(
+                [
+                    'endpoint',
+                    'action' => $this->action->id,
+                    'provider' => $provider
+                ]
+            );
         }
 
-        $q = \open20\amos\mobile\bridge\modules\v1\models\User::find();
-        $q->where(['email' => $userProfile->email]);
-        $q->orWhere(['username' => $userProfile->email]);
+        if (!($this->userProfile instanceof Profile)) {
+            return $this->redirect(
+                [
+                    '/socialauth/social-auth/land',
+                    'error' => true,
+                    'errorMessage' => Yii::t('socialauth', 'Accesso Social Non Disponibile')
+                ]
+            );
+        }
 
-        $userMatchMail = $q->one();
+        /**
+         * @var $socialUser SocialAuthUsers
+         */
+        $socialUser = SocialAuthUsers::findOne(['identifier' => $this->userProfile->identifier, 'provider' => $provider]);
 
-        if (!$userMatchMail || !$userMatchMail->id) {
-            return $this->redirect(['/socialauth/social-auth/land', 'error' => true, 'errorMessage' => Yii::t('socialauth', 'Non Sei Registrato Nella Piattaforma')]);
+        /**
+         * @var $platformUser \open20\amos\mobile\bridge\modules\v1\models\User
+         */
+        $platformUser = \open20\amos\mobile\bridge\modules\v1\models\User::findOne(['id' => $socialUser->user_id]);
+
+        if (!$platformUser || !$platformUser->id) {
+            return $this->redirect(
+                [
+                    '/socialauth/social-auth/land',
+                    'redirectToRegister' => true,
+                    'error' => true,
+                    'errorMessage' => Yii::t('socialauth', 'Non Sei Registrato Nella Piattaforma'),
+                ]
+            );
         }
 
         /**
          * @var $token AccessTokens
          */
-        $token = $userMatchMail->refreshAccessToken('mobile', 'mobile');
+        $token = $platformUser->refreshAccessToken('mobile', 'mobile');
 
         if ($token && !$token->hasErrors()) {
             return $this->redirect(['/socialauth/social-auth/land', 'token' => $token->access_token]);
         } else {
-            return $this->redirect(['/socialauth/social-auth/land', 'error' => true, 'errorMessage' => Yii::t('socialauth', 'Errore Di ACcesso, Riprovare Tra Qualche Minuto')]);
+            return $this->redirect(
+                [
+                    '/socialauth/social-auth/land',
+                    'error' => true,
+                    'errorMessage' => Yii::t('socialauth', 'Errore Di Accesso, Riprovare Tra Qualche Minuto')
+                ]
+            );
         }
-
     }
 
     /**
@@ -354,10 +458,12 @@ class SocialAuthController extends BackendController
      * @param $provider
      * @return bool|\yii\web\Response
      */
-    public function actionSignUp($provider)
+    public function actionSignUp($provider, $status = null)
     {
         $community_id = \Yii::$app->request->get('community');
-        $urlToCommunity = \Yii::$app->getUrlManager()->createUrl(['/community/join', 'id' => $community_id, 'subscribe' => 1]);
+        $urlToCommunity = \Yii::$app->getUrlManager()->createUrl(
+            ['/community/join', 'id' => $community_id, 'subscribe' => 1]
+        );
 
         if (!\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
             Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Already Logged In'));
@@ -374,32 +480,24 @@ class SocialAuthController extends BackendController
             return $this->goHome();
         }
 
-        /**
-         * @var $adapter \Hybrid_Provider_Adapter
-         */
-        $adapter = $this->authProcedure($provider);
-
-        /**
-         * If the mail is not set i can't create user
-         */
-        if (!$adapter) {
-            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to register, permission denied'));
-
-            return $this->goHome();
+        //Prepare procedure
+        if ($status == null) {
+            return $this->redirect(
+                [
+                    'endpoint',
+                    'action' => $this->action->id,
+                    'provider' => $provider
+                ]
+            );
         }
 
         //Change login timeout
         $loginTimeout = Yii::$app->params['loginTimeout'] ?: 3600;
 
         /**
-         * @var $socialProfile \Hybrid_User_Profile
+         * @var $socialProfile Profile
          */
-        $socialProfile = $adapter->getUserProfile();
-
-        /**
-         * Kick off social user
-         */
-        $adapter->logout();
+        $socialProfile = $this->userProfile;
 
         /**
          * @var $socialUser SocialAuthUsers
@@ -414,10 +512,15 @@ class SocialAuthController extends BackendController
              * If the user exists
              */
             if ($socialUser->user && $socialUser->user->id) {
-
                 //Check user deactivated
                 if ($socialUser->user->status == User::STATUS_DELETED) {
-                    Yii::$app->session->addFlash('danger', Module::t('amosadmin', 'User deactivated. To log in again, request reactivation of the profile.'));
+                    Yii::$app->session->addFlash(
+                        'danger',
+                        Module::t(
+                            'amosadmin',
+                            'User deactivated. To log in again, request reactivation of the profile.'
+                        )
+                    );
 //                    return $this->goHome();
                     return $this->goBack();
                 }
@@ -435,7 +538,10 @@ class SocialAuthController extends BackendController
          * If the mail is not set i can't create user
          */
         if (empty($socialProfile->email)) {
-            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to register, missing mail permission'));
+            Yii::$app->session->addFlash(
+                'danger',
+                Module::t('amossocialauth', 'Unable to register, missing mail permission')
+            );
 
             return $this->goHome();
         }
@@ -451,7 +557,7 @@ class SocialAuthController extends BackendController
                 Yii::$app->session->set('social-match', $provider);
                 Yii::$app->session->set('social-profile', $socialProfile);
 
-                return $this->redirect('/'.AmosAdmin::getInstance()->id.'/security/login');
+                return $this->redirect('/' . AmosAdmin::getInstance()->id . '/security/login');
             } else {
                 $this->linkSocialToUser($provider, $socialProfile, $userMatchMail->id);
 
@@ -489,7 +595,10 @@ class SocialAuthController extends BackendController
          * If $newUser is false the user is not created
          */
         if (!$userProfile || !$userProfile->id) {
-            Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Error when loading profile data, try again'));
+            Yii::$app->session->addFlash(
+                'danger',
+                Module::t('amossocialauth', 'Error when loading profile data, try again')
+            );
 
             //Rollback User on error
             $user->id->delete();
@@ -549,10 +658,10 @@ class SocialAuthController extends BackendController
     }
 
     /**
-     * @param \Hybrid_User_Profile $socialProfile
+     * @param \Hybridauth\User\Profile $socialProfile
      * @return bool|int
      */
-    protected function createUser(\Hybrid_User_Profile $socialProfile)
+    protected function createUser(\Hybridauth\User\Profile $socialProfile)
     {
         try {
             //Name Parts (maybe it contains last name
@@ -565,7 +674,7 @@ class SocialAuthController extends BackendController
                     $copyParts = $userNameParts;
 
                     //Only name part
-                    $userName = reset($userNameParts);
+                    $userName = reset($userNameParts) ?: Yii::t('amossocialauth', 'User');
 
                     //Shift out name
                     array_shift($copyParts);
@@ -599,7 +708,10 @@ class SocialAuthController extends BackendController
 
             //If $newUser is false the user is not created
             if (!$newUser || isset($newUser['error'])) {
-                Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to register, user creation error'));
+                Yii::$app->session->addFlash(
+                    'danger',
+                    Module::t('amossocialauth', 'Unable to register, user creation error')
+                );
 
                 if ($newUser['messages']) {
                     foreach ($newUser['messages'] as $message) {
@@ -617,11 +729,11 @@ class SocialAuthController extends BackendController
     }
 
     /**
-     * @param \Hybrid_User_Profile $socialProfile
+     * @param \Hybridauth\User\Profile $socialProfile
      * @param $userProfile
      * @return bool
      */
-    protected function importUserImage(\Hybrid_User_Profile $socialProfile, $userProfile)
+    protected function importUserImage(\Hybridauth\User\Profile $socialProfile, $userProfile)
     {
         //If profile image url is set
         if ($socialProfile->photoURL) {
@@ -629,7 +741,10 @@ class SocialAuthController extends BackendController
             $fileHeader = @get_headers($socialProfile->photoURL);
 
             //If the file exists (header 200)
-            if (preg_match("|200|", $fileHeader[0]) || preg_match("|304|", $fileHeader[0]) || preg_match("|302|", $fileHeader[0])) {
+            if (preg_match("|200|", $fileHeader[0]) || preg_match("|304|", $fileHeader[0]) || preg_match(
+                    "|302|",
+                    $fileHeader[0]
+                )) {
                 // Get Importer component
                 $importTool = new FileImport();
 
@@ -637,7 +752,10 @@ class SocialAuthController extends BackendController
                 $temporaryFile = $this->obtainImage($socialProfile->photoURL);
 
                 if ($temporaryFile == false) {
-                    Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to store image file, try again'));
+                    Yii::$app->session->addFlash(
+                        'danger',
+                        Module::t('amossocialauth', 'Unable to store image file, try again')
+                    );
 
                     return false;
                 }
@@ -649,7 +767,10 @@ class SocialAuthController extends BackendController
                     Yii::$app->session->addFlash('danger', $importResult['error']);
                     return false;
                 } elseif ($importResult == false) {
-                    Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to import the user avatar'));
+                    Yii::$app->session->addFlash(
+                        'danger',
+                        Module::t('amossocialauth', 'Unable to import the user avatar')
+                    );
                     return false;
                 }
             }
@@ -685,12 +806,18 @@ class SocialAuthController extends BackendController
 
     /**
      * @param UserProfile $userProfile
-     * @param \Hybrid_User_Profile $socialProfile
+     * @param \Hybridauth\User\Profile $socialProfile
      * @param $provider
      * @return bool|SocialAuthUsers
      */
-    protected function createSocialUser($userProfile, \Hybrid_User_Profile $socialProfile, $provider)
+    protected function createSocialUser($userProfile, \Hybridauth\User\Profile $socialProfile, $provider)
     {
+        $existsUser = SocialAuthUsers::findOne(['provider' => $provider, 'identifier' => $socialProfile->identifier]);
+
+        if($existsUser && $existsUser->id) {
+            return false;
+        }
+
         try {
             /**
              * @var $socialUser SocialAuthUsers
@@ -715,17 +842,22 @@ class SocialAuthController extends BackendController
                     $socialUser->save();
                     return $socialUser;
                 } else {
-                    Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to Link The Social Profile'));
+                    Yii::$app->session->addFlash(
+                        'danger',
+                        Module::t('amossocialauth', 'Unable to Link The Social Profile')
+                    );
                     return false;
                 }
             } else {
-                Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Invalid Social Profile, Try again'));
+                Yii::$app->session->addFlash(
+                    'danger',
+                    Module::t('amossocialauth', 'Invalid Social Profile, Try again')
+                );
                 return false;
             }
         } catch (\Exception $e) {
             return false;
         }
-
     }
 
     /**
@@ -733,7 +865,7 @@ class SocialAuthController extends BackendController
      * @param $provider
      * @return \yii\web\Response
      */
-    public function actionLinkUser($provider)
+    public function actionLinkUser($provider, $status = null)
     {
         $this->setUpLayout('login');
 
@@ -755,33 +887,24 @@ class SocialAuthController extends BackendController
             return $this->goBack();
         }
 
-        /**
-         * @var $adapter \Hybrid_Provider_Adapter
-         */
-        $adapter = $this->authProcedure($provider);
-
-        /**
-         * If the adapter is not set go back to home
-         */
-        if (!$adapter) {
-            return $this->goBack();
+        //Prepare procedure
+        if ($status == null) {
+            return $this->redirect(
+                [
+                    'endpoint',
+                    'action' => $this->action->id,
+                    'provider' => $provider
+                ]
+            );
         }
-
-        /**
-         * @var $userProfile \Hybrid_User_Profile
-         */
-        $userProfile = $adapter->getUserProfile();
-
-        /**
-         * Kick off social user
-         */
-        $adapter->logout();
 
         /**
          * Find for existing social profile with the same ID
          * @var $existingUserProfile SocialAuthUsers
          */
-        $existingUserProfile = SocialAuthUsers::findOne(['identifier' => $userProfile->identifier, 'provider' => $provider]);
+        $existingUserProfile = SocialAuthUsers::findOne(
+            ['identifier' => $this->userProfile->identifier, 'provider' => $provider]
+        );
 
         /**
          * If the social profile exists go back with notice
@@ -790,7 +913,13 @@ class SocialAuthController extends BackendController
             if ($existingUserProfile->user_id == Yii::$app->user->id) {
                 Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Social Profile Already Connected'));
             } else {
-                Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Social Profile Already Connected to Another User'));
+                Yii::$app->session->addFlash(
+                    'danger',
+                    Module::t(
+                        'amossocialauth',
+                        'Social Profile Already Connected to Another User'
+                    )
+                );
             }
 
             return $this->goBack();
@@ -799,7 +928,7 @@ class SocialAuthController extends BackendController
         /**
          * @var $userProfileArray array User profile from provider
          */
-        $userProfileArray = (array)$userProfile;
+        $userProfileArray = (array)$this->userProfile;
         $userProfileArray['provider'] = $provider;
         $userProfileArray['user_id'] = Yii::$app->user->id;
 
@@ -822,7 +951,10 @@ class SocialAuthController extends BackendController
 
                 return $this->goBack();
             } else {
-                Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to Link The Social Profile'));
+                Yii::$app->session->addFlash(
+                    'danger',
+                    Module::t('amossocialauth', 'Unable to Link The Social Profile'). ': '. $socialUser->getFirstError()
+                );
 
                 return $this->goBack();
             }
@@ -838,14 +970,14 @@ class SocialAuthController extends BackendController
      * @param $provider
      * @return string
      */
-    public function actionLinkSocialAccount($provider)
+    public function actionLinkSocialAccount($provider, $status = null)
     {
         $this->setUpLayout('empty');
 
         /**
          * If the user is already logged in go to home
          */
-        if (\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
+        if (Yii::$app->user->isGuest) {
             $message = Module::t('amossocialauth', 'Please LogIn to your account First');
             return $this->render('link-social-account', ['message' => $message]);
         }
@@ -858,33 +990,24 @@ class SocialAuthController extends BackendController
             return $this->render('link-social-account', ['message' => $message]);
         }
 
-        /**
-         * @var $adapter \Hybrid_Provider_Adapter
-         */
-        $adapter = $this->authProcedure($provider);
-
-        /**
-         * If the adapter is not set go back to home
-         */
-        if (!$adapter) {
-            return $this->render('link-social-account', ['message' => 'no adapter for provider ' . $provider]);
+        //Prepare procedure
+        if ($status == null) {
+            return $this->redirect(
+                [
+                    'endpoint',
+                    'action' => $this->action->id,
+                    'provider' => $provider
+                ]
+            );
         }
-
-        /**
-         * @var $userProfile \Hybrid_User_Profile
-         */
-        $userProfile = $adapter->getUserProfile();
-
-        /**
-         * Kick off social user
-         */
-        $adapter->logout();
 
         /**
          * Find for existing social profile with the same ID
          * @var $existingUserProfile SocialAuthUsers
          */
-        $existingUserProfile = SocialAuthUsers::findOne(['identifier' => $userProfile->identifier, 'provider' => $provider]);
+        $existingUserProfile = SocialAuthUsers::findOne(
+            ['identifier' => $this->userProfile->identifier, 'provider' => $provider]
+        );
 
         /**
          * If the social profile exists go back with notice
@@ -902,7 +1025,7 @@ class SocialAuthController extends BackendController
         /**
          * @var $userProfileArray array User profile from provider
          */
-        $userProfileArray = (array)$userProfile;
+        $userProfileArray = (array)$this->userProfile;
         $userProfileArray['provider'] = $provider;
         $userProfileArray['user_id'] = Yii::$app->user->id;
 
@@ -922,14 +1045,11 @@ class SocialAuthController extends BackendController
                 $socialUser->save();
 
                 $message = Module::t('amossocialauth', 'Social profile Linked');
-
             } else {
                 $message = Module::t('amossocialauth', 'Unable to Link The Social Profile');
-
             }
         } else {
             $message = Module::t('amossocialauth', 'Invalid Social Profile, Try again');
-
         }
         return $this->render('link-social-account', ['message' => $message]);
     }
@@ -964,10 +1084,12 @@ class SocialAuthController extends BackendController
         /**
          * @var $socialUser SocialAuthUsers
          */
-        $socialUser = SocialAuthUsers::findOne([
-            'user_id' => Yii::$app->user->id,
-            'provider' => $provider
-        ]);
+        $socialUser = SocialAuthUsers::findOne(
+            [
+                'user_id' => Yii::$app->user->id,
+                'provider' => $provider
+            ]
+        );
 
         /**
          * If linking is not enabled
@@ -991,13 +1113,12 @@ class SocialAuthController extends BackendController
     /**
      * Create new social profile on db a link to selected user_id
      * @param $provider
-     * @param \Hybrid_User_Profile $socialProfile
+     * @param Profile $socialProfile
      * @param $user_id
      * @return \yii\web\Response
      */
-    protected function linkSocialToUser($provider, \Hybrid_User_Profile $socialProfile, $user_id)
+    protected function linkSocialToUser($provider, Profile $socialProfile, $user_id)
     {
-
         /**
          * @var $userProfileArray array User profile from provider
          */
@@ -1024,7 +1145,10 @@ class SocialAuthController extends BackendController
 
                 return true;
             } else {
-                Yii::$app->session->addFlash('danger', Module::t('amossocialauth', 'Unable to Link The Social Profile'));
+                Yii::$app->session->addFlash(
+                    'danger',
+                    Module::t('amossocialauth', 'Unable to Link The Social Profile')
+                );
 
                 return false;
             }
@@ -1047,7 +1171,12 @@ class SocialAuthController extends BackendController
         /**
          * If the user is already logged in go to home
          */
-        if (\open20\amos\core\utilities\CurrentUser::isPlatformGuest()) {
+        if(isset(Yii::$app->params['platformConfigurations']['guestUserId'])){
+            $isGuest = \open20\amos\core\utilities\CurrentUser::isPlatformGuest();
+        }else {
+            $isGuest = \Yii::$app->user->isGuest;
+        }
+        if ($isGuest) {
             $message = Module::t('amossocialauth', 'Please LogIn to your account First');
             if (Yii::$app->request->isPost) {
                 $result['result'] = false;
@@ -1073,10 +1202,12 @@ class SocialAuthController extends BackendController
         /**
          * @var $socialUser SocialAuthUsers
          */
-        $socialUser = SocialAuthUsers::findOne([
-            'user_id' => Yii::$app->user->id,
-            'provider' => $provider
-        ]);
+        $socialUser = SocialAuthUsers::findOne(
+            [
+                'user_id' => Yii::$app->user->id,
+                'provider' => $provider
+            ]
+        );
 
         /**
          * If linking is not enabled
@@ -1104,6 +1235,59 @@ class SocialAuthController extends BackendController
             return json_encode($result);
         }
         return $this->render('link-social-account', ['message' => $message]);
+    }
+
+    /**
+     * @param string $provider
+     * @return \Hybrid_User_Profile|\yii\web\Response
+     */
+    public function actionGetUserSocial($provider = 'facebook', $urlToRedirect = null){
+
+        /**
+             * @var $adapter \Hybrid_Provider_Adapter
+             */
+            $adapter = $this->authProcedure($provider, Yii::$app->params['platform']['backendUrl']);
+            /**
+             * If the adapter is not set go back to home
+             */
+            if (!$adapter) {
+//            return $this->goHome();
+                return $this->goBack();
+            }
+
+            /**
+             * @var $userProfile \Hybrid_User_Profile
+             */
+            $userProfile = $adapter->getUserProfile();
+
+            /**
+             * Kick off social user
+             */
+            $adapter->logout();
+
+            /**
+             * @var $socialUser SocialAuthUsers
+             */
+            $socialUser = SocialAuthUsers::findOne(['identifier' => $userProfile->identifier,
+                'provider' => $provider]);
+
+            /**
+             * If the social user exists
+             */
+            if ($socialUser) {
+                $userProfile = new \Hybrid_User_Profile();
+                $profile = $socialUser->user->userProfile;
+                $userProfile->firstName = $profile->nome;
+                $userProfile->lastName = $profile->cognome;
+                $userProfile->email = $socialUser->user->email;
+            }
+//        pr(\Yii::$app->getUser()->getReturnUrl());die;
+        if(strpos('?', $urlToRedirect) > 0){
+                $separator = '&';
+        }else{
+            $separator = '?';
+        }
+        return $this->redirect($urlToRedirect.$separator.'userSocial='. urlencode(json_encode($userProfile)));
     }
 
 

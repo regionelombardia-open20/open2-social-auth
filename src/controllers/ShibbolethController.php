@@ -61,12 +61,12 @@ class ShibbolethController extends BackendController
                         //'roles' => ['*']
                     ],
                     [
-                        'allow' => true,
-                        'actions' => [
-                            'remove-spid',
-                        ],
-                        'roles' => ['@']
-                    ]
+                    'allow' => true,
+                    'actions' => [
+                        'remove-spid',
+                    ],
+                    'roles' => ['@']
+                ]
                 ],
             ],
         ];
@@ -114,15 +114,24 @@ class ShibbolethController extends BackendController
             $user->refreshAccessToken('', '');
 
             return $this->redirect(['/socialauth/social-auth/land', 'token' => $user->getAccessToken()]);
-        } else {
-            return $this->redirect(['/socialauth/social-auth/land', 'error' => true]);
+        }
+        else {
+            $sessionIdm = \Yii::$app->session->get('IDM');
+            return $this->redirect(['/socialauth/social-auth/land',
+//                'urlRedirect' => '/admin/security/register?confirm=1&from-shibboleth=1&sessionIdm='.serialize($sessionIdm),
+                'urlRedirect' => '/admin/security/register?confirm=1&from-shibboleth=1',
+                'redirectToRegister' => true,
+                'error' => true,
+                'errorMessage' => Yii::t('socialauth', 'Non Sei Registrato Nella Piattaforma'),
+            ]);
         }
     }
 
     /**
-     * @param string $type
-     * @param array $dataFetch
-     * @return string|\yii\web\Response
+     * @param bool $confirmLink
+     * @param bool $render
+     * @param bool $redirect
+     * @return array|string|\yii\web\Response
      */
     public function tryIdmLink($confirmLink = false, $render = true, $redirect = true)
     {
@@ -169,6 +178,7 @@ class ShibbolethController extends BackendController
 
     protected function procedure($confirmLink = false, $render = true)
     {
+
         //Store data into session
         $userDatas = $this->storeDataInSession();
 
@@ -186,18 +196,11 @@ class ShibbolethController extends BackendController
 
         /** @var UserProfile|null $existsByFC */
         $existsByFC = (($countUsersByCF == 1) ? reset($usersByCF) : null);
-        
+        $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
+
         /** @var Module $socialAuthModule */
         $socialAuthModule = Module::instance();
         $adminModule = AmosAdmin::getInstance();
-        
-        $checkOnlyFiscalCode = $socialAuthModule->checkOnlyFiscalCode;
-        $existsByEmail = null;
-        if (!$checkOnlyFiscalCode) {
-            $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
-        }
-
-        
 
         //Get timeout for app login
         $loginTimeout = \Yii::$app->params['loginTimeout'] ?: 3600;
@@ -263,9 +266,14 @@ class ShibbolethController extends BackendController
             return ['status' => 'fc'];
             //return $this->redirect(['/', 'done' => 'fc']);
         } elseif ((($relation && $relation->id) || ($existsByFC && $existsByFC->id)) && !\Yii::$app->user->isGuest) {
+            if(\Yii::$app->session->get('connectSpidToProfile')){
+                $this->createIdmUser($userDatas);
+                \Yii::$app->session->remove('connectSpidToProfile');
+                return ['status' => 'override'];
+            }
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
-        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && !$confirmLink && $render) {
+        } elseif ($existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && !$confirmLink && $render) {
             // AUTOMATIC LOGIN & AUTOMATIC REGISTRATION
             if ($socialAuthModule->shibbolethAutoLogin) {
                 return $this->redirect(['/socialauth/shibboleth/endpoint', 'confirm' => true]);
@@ -277,7 +285,7 @@ class ShibbolethController extends BackendController
                 'userProfile' => $existsByEmail->profile,
                 'authType' => $this->authType,
             ]);
-        } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && $confirmLink) {
+        } elseif ($existsByEmail && $existsByEmail->id && \Yii::$app->user->isGuest && $confirmLink) {
             if ($this->isUserDisabled($existsByEmail->id)) {
                 return ['status' => 'disabled', 'user_id' => $existsByEmail->id];
             }
@@ -305,6 +313,8 @@ class ShibbolethController extends BackendController
 
             //Store IDM user
             $this->createIdmUser($userDatas);
+            \Yii::$app->session->remove('connectSpidToProfile');
+
 
             return ['status' => 'override'];
             //return $this->redirect(['/', 'done' => 'override']);
@@ -392,11 +402,6 @@ class ShibbolethController extends BackendController
                     $rawData = $dataFetch->toArray();
                 }
             }
-    
-            if (strpos($codiceFiscale, 'TINIT-') !== false) {
-                $spliCF = explode('-', $codiceFiscale);
-                $codiceFiscale = end($spliCF);
-            }
 
             //Data to store in session in case header is not filled
             $sessionIDM = [
@@ -449,17 +454,18 @@ class ShibbolethController extends BackendController
 
         return $this->goHome();
     }
-    
+
+
     /**
      * @param null $urlRedirect
      * @return null|\yii\web\Response
      */
-    public function actionRemoveSpid($urlRedirect = null)
-    {
+    public function actionRemoveSpid($urlRedirect = null){
         SocialAuthUtility::disconnectIdm(\Yii::$app->user->id);
-        if ($urlRedirect) {
+        if($urlRedirect){
             return $this->redirect($urlRedirect);
         }
         return $this->goHome();
+
     }
 }

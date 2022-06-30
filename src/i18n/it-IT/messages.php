@@ -44,6 +44,8 @@ return [
     'spid_login_welcome' => 'Utenza trovata',
     'spid_login_subtitle' => 'E\' stata trovata un\'utenza corrispondente all\'indirizzo email<br><strong>{email}</strong> utilizzato per l\'accesso SPID.<br>Si prega di controllare i seguenti dati e confermare la propria identità.',
     'spid_login_subtitle_cns' => 'E\' stata trovata un\'utenza corrispondente all\'indirizzo email<br><strong>{email}</strong> utilizzato per l\'accesso CNS.<br>Si prega di controllare i seguenti dati e confermare la propria identità.',
+    'spid_login_subtitle_no_autoassign' => 'E\' stata trovata un\'utenza corrispondente all\'indirizzo email<br><strong>{email}</strong> utilizzato per l\'accesso SPID.<br>Puoi associare il tuo SPID alla tua utenza effettuando il login e ed associarlo dal tuo profilo utente.',
+    'spid_login_subtitle_cns_no_autoassign' => 'E\' stata trovata un\'utenza corrispondente all\'indirizzo email<br><strong>{email}</strong> utilizzato per l\'accesso CNS.<br>Puoi associare il tuo SPID alla tua utenza effettuando il login e ed associarlo dal tuo profilo utente.',
     'spid_login_user_data' => 'Dati utenza',
     '#spid_login_multi_cf_subtitle' => 'Sono stati trovati i seguenti utenti<br>con il codice fiscale <strong>{cf}</strong>.<br>Con quale utenza vuoi accedere a Cruscotto Lavoro?',
     'spid_login_name' => 'Nome',
@@ -60,4 +62,5 @@ return [
     'spid_signup_register' => 'oppure:',
     'spid_signup_register2' => 'procedi con una nuova registrazione',
     'spid_signup_register_btn' => 'Registrati',
+    'spid_go_to_login_btn' => 'Vai al login',
 ];
