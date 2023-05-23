@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -66,8 +65,7 @@ class AgidLoginController extends BackendController
             $this->config = \yii\helpers\ArrayHelper::merge($this->config, Module::instance()->agidLoginConfiguration);
             if (empty($this->config['clientId']) || empty($this->config['clientSecret'])) {
                 throw new \yii\base\InvalidConfigException(\Yii::t(
-                    'amosapp',
-                    "Impossibile utilizzare l'Agid Login senza impostare clientId e clientSecret."
+                    'amosapp', "Impossibile utilizzare l'Agid Login senza impostare clientId e clientSecret."
                 ));
             }
             if ($module->agidLoginUseFrontendUrl == false) {
@@ -91,7 +89,7 @@ class AgidLoginController extends BackendController
                             'connect',
                             'login',
                         ],
-                        //'roles' => ['*']
+                    //'roles' => ['*']
                     ],
                     [
                         'allow' => true,
@@ -114,7 +112,7 @@ class AgidLoginController extends BackendController
 
             $client  = $this->getClient();
             $baseUrl = $this->getBaseUrlPlatform();
-            $url     = $client->buildAuthUrl(['redirect_uri' => $baseUrl . '/socialauth/agid-login/login']);
+            $url     = $client->buildAuthUrl(['redirect_uri' => $baseUrl.'/socialauth/agid-login/login']);
 
             $state = $this->getStateFromUrl($url);
 
@@ -140,19 +138,33 @@ class AgidLoginController extends BackendController
                 return $this->goHome();
             }
 
-            $client  = $this->getClient();
-            $request = $client->createRequest()
-                ->setMethod('POST')
-                ->setUrl('token')
-                ->addHeaders(['Authorization' => 'Basic ' . \yii\helpers\BaseStringHelper::base64UrlEncode($client->clientId . ":" . $client->clientSecret)])
-                ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
-                ->setData([
+            $client = $this->getClient();
+            if ($socialModule->useBasicAuthAgidLogin == true) {
+                $request = $client->createRequest()
+                    ->setMethod('POST')
+                    ->setUrl('token')
+                    ->addHeaders(['Authorization' => 'Basic '.\yii\helpers\BaseStringHelper::base64UrlEncode($client->clientId.":".$client->clientSecret)])
+                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
+                    ->setData([
                     //                'client_id' => $client->clientId,
                     //                'client_secret' => $client->clientSecret,
                     'grant_type' => 'authorization_code',
                     'code' => $code,
-                    'redirect_uri' => $this->getBaseUrlPlatform() . '/socialauth/agid-login/login',
+                    'redirect_uri' => $this->getBaseUrlPlatform().'/socialauth/agid-login/login',
                 ]);
+            } else {
+                $request = $client->createRequest()
+                    ->setMethod('POST')
+                    ->setUrl('token')
+                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
+                    ->setData([
+                    'client_id' => $client->clientId,
+                    'client_secret' => $client->clientSecret,
+                    'grant_type' => 'authorization_code',
+                    'code' => $code,
+                    'redirect_uri' => $this->getBaseUrlPlatform().'/socialauth/agid-login/login',
+                ]);
+            }
 
             $response = $request->send();
 
@@ -168,7 +180,7 @@ class AgidLoginController extends BackendController
             $requestUser = $client->createRequest()
                 ->setMethod('POST')
                 ->setUrl('userinfo')
-                ->addHeaders(['Authorization' => $content->token_type . ' ' . $content->access_token])
+                ->addHeaders(['Authorization' => $content->token_type.' '.$content->access_token])
                 ->addHeaders(['content-type' => 'application/x-www-form-urlencoded']);
 
             $userinfo = $requestUser->send();
@@ -228,8 +240,7 @@ class AgidLoginController extends BackendController
                 if ($n == 0) {
                     if (!$socialModule->enableRegister) {
                         Yii::$app->session->addFlash(
-                            'danger',
-                            Module::t('amossocialauth', 'Unable to register, user creation disabled')
+                            'danger', Module::t('amossocialauth', 'Unable to register, user creation disabled')
                         );
 
                         return null;
@@ -238,15 +249,11 @@ class AgidLoginController extends BackendController
                     $adminModule = AmosAdmin::getInstance();
 
                     $newUser = $adminModule->createNewAccount(
-                        $data->firstname,
-                        $data->lastname,
-                        $data->email,
-                        true
+                        $data->firstname, $data->lastname, $data->email, true
                     );
                     if (!$newUser || isset($newUser['error'])) {
                         Yii::$app->session->addFlash(
-                            'danger',
-                            Module::t('amossocialauth', 'Unable to register, user creation error')
+                            'danger', Module::t('amossocialauth', 'Unable to register, user creation error')
                         );
                     }
                     if (!empty($newUser['user'])) {
@@ -284,7 +291,7 @@ class AgidLoginController extends BackendController
                 $idmUser->cognome         = $data->lastname;
                 $idmUser->emailAddress    = $data->email;
                 $idmUser->cellulare       = $data->phone;
-                $idmUser->rawData         = json_encode((array)$data);
+                $idmUser->rawData         = json_encode((array) $data);
                 $idmUser->accessMethod    = $data->provider;
                 $idmUser->save(false);
             }
@@ -390,15 +397,15 @@ class AgidLoginController extends BackendController
                 ->setUrl('session/end')
                 ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
                 ->setData([
-                    'id_token_hint' => $id_token,
-                    'post_logout_redirect_uri' => (empty($redir) ? $this->getBaseUrlPlatform() : $this->getBaseUrlPlatform() . $redir),
-                    'state' => $state
-                ]);
+                'id_token_hint' => $id_token,
+                'post_logout_redirect_uri' => (empty($redir) ? $this->getBaseUrlPlatform() : $this->getBaseUrlPlatform().$redir),
+                'state' => $state
+            ]);
 
             $response = $request->send();
             if ($response->isOk) {
                 $headers = $response->getHeaders()->toArray();
-                return \Yii::$app->getResponse()->redirect($client->apiBaseUrl . $headers['location'][0]);
+                return \Yii::$app->getResponse()->redirect($client->apiBaseUrl.$headers['location'][0]);
             }
             return $this->goHome();
         } catch (Exception $ex) {

@@ -142,6 +142,23 @@ class SocialAuthUtility
     }
 
     /**
+     * @param $userDatas
+     */
+    public static function setIdpcAccessMethodInSession($userDatas){
+        if(isset($userDatas['rawData']['saml-attribute-originedatiutente']) && isset($userDatas['rawData']['saml-attribute-tipoautenticazione'])) {
+            $accessMethod = reset($userDatas['rawData']['saml-attribute-originedatiutente']);
+            $accessLevel = reset($userDatas['rawData']['saml-attribute-tipoautenticazione']);
+
+            \Yii::$app->session->set('idpcAccessMethod', [
+                'accessMethod' => $accessMethod,
+                'accessLevel' => $accessLevel,
+            ]);
+        }
+
+
+    }
+
+    /**
      * @param $user_id
      * @return int
      */
@@ -220,7 +237,9 @@ class SocialAuthUtility
      */
     public static function getRegisterLink()
     {
-        if (\Yii::$app->isCmsApplication()) {
+        $isLuyaApplication = \Yii::$app instanceof  luya\web\Application;
+
+        if ($isLuyaApplication && \Yii::$app->isCmsApplication()) {
             if (\Yii::$app->params['linkConfigurations']['registrationLinkCommon']) {
                 $strPosRes = strpos(\Yii::$app->params['linkConfigurations']['registrationLinkCommon'], '/');
                 return (($strPosRes === false) || ($strPosRes > 0) ? '/' : '') . \Yii::$app->params['linkConfigurations']['registrationLinkCommon'];
@@ -238,7 +257,9 @@ class SocialAuthUtility
      */
     public static function getLoginLink()
     {
-        if (\Yii::$app->isCmsApplication()) {
+        $isLuyaApplication = \Yii::$app instanceof  luya\web\Application;
+
+        if ($isLuyaApplication && \Yii::$app->isCmsApplication()) {
             if (\Yii::$app->params['linkConfigurations']['loginLinkCommon']) {
                 $strPosRes = strpos(\Yii::$app->params['linkConfigurations']['loginLinkCommon'], '/');
                 return (($strPosRes === false) || ($strPosRes > 0) ? '/' : '') . \Yii::$app->params['linkConfigurations']['loginLinkCommon'];

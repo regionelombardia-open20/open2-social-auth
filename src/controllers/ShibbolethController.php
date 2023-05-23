@@ -148,16 +148,49 @@ class ShibbolethController extends BackendController
      */
     public function actionMobile()
     {
+        $this->setParamsMobileInSession();
+        $_GET = null;
         $result = $this->tryIdmLink(false, true, false);
         if (is_array($result) && isset($result['status']) || !$this->isGuestUser()) {
             if ($result['status'] == 'autoregistration') {
                 return $this->redirect([SocialAuthUtility::getRegisterLink(), 'confirm' => true, 'from-shibboleth' => true, 'mobile' => true]);
             }
             $user = \open20\amos\mobile\bridge\modules\v1\models\User::findOne(Yii::$app->user->id);
-            $user->refreshAccessToken('', '');
+
+            $mobileParams = $this->getParamsMobileFromSession();
+            $user->refreshAccessToken($mobileParams['fcm_token'], $mobileParams['os']);
             return $this->redirect(['/socialauth/social-auth/land', 'token' => $user->getAccessToken()]);
         }
         return $this->view;
+    }
+
+    /**
+     *
+     */
+    public function setParamsMobileInSession()
+    {
+        $fcm_token = \Yii::$app->request->get('fcm_token');
+        $os = \Yii::$app->request->get('os');
+        if (!empty($fcm_token)) {
+            \Yii::$app->session->set('mobile_fcs_token', base64_decode($fcm_token));
+        }
+        if (!empty($os)) {
+            \Yii::$app->session->set('mobile_os', $os);
+        }
+    }
+
+    /**
+     * @return array
+     */
+    public function getParamsMobileFromSession(){
+        $fcm_token = \Yii::$app->session->get('mobile_fcs_token');
+        $os = \Yii::$app->session->get('mobile_os');
+
+        return [
+            'fcm_token' => $fcm_token,
+            'os' => $os,
+        ];
+
     }
 
     /**
@@ -251,6 +284,8 @@ class ShibbolethController extends BackendController
      */
     protected function procedure($confirmLink = false, $render = true)
     {
+        $isLuyaApplication = \Yii::$app instanceof luya\web\Application;
+
         //Store data into session
         $userDatas = $this->storeDataInSession();
 
@@ -288,6 +323,9 @@ class ShibbolethController extends BackendController
         if (!$checkOnlyFiscalCode) {
             $existsByEmail = User::findOne(['email' => $userDatas['emailAddress']]);
         }
+
+        //set in session info abbout access method, used to log user access in amos-admin
+        SocialAuthUtility::setIdpcAccessMethodInSession($userDatas);
 
         //Get timeout for app login
         $loginTimeout = \Yii::$app->params['loginTimeout'] ?: 3600;
@@ -361,9 +399,9 @@ class ShibbolethController extends BackendController
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
         } elseif (($relation && $relation->id) && (!$isGuestUser && $relation->user_id != \Yii::$app->user->id)) {
-                \Yii::$app->session->addFlash('warning', Module::t('amossocialauth','La tua identità digitale è già associata ad un altro account'));
-                \Yii::$app->session->remove('IDM');
-                
+            \Yii::$app->session->addFlash('warning', Module::t('amossocialauth', 'La tua identità digitale è già associata ad un altro account'));
+            \Yii::$app->session->remove('IDM');
+
             //User logged and idm exists, go to home, case not allowed
             //return $this->redirect(['/', 'error' => 'overload']);
         } elseif (!$checkOnlyFiscalCode && $existsByEmail && $existsByEmail->id && $isGuestUser && !$confirmLink) {
@@ -410,7 +448,7 @@ class ShibbolethController extends BackendController
                 $urlRedirectUrlSpid = \Yii::$app->session->get('redirect_url_spid');
 //                pr($urlRedirectPostReg);die;
                 if (empty($urlRedirectUrlSpid)) {
-                    if (\Yii::$app->isCmsApplication()) {
+                    if ($isLuyaApplication && \Yii::$app->isCmsApplication()) {
                         $viewToRender = 'bi-ask-reconciliation';
                         $this->setActionLayout();
                     } else {
@@ -428,7 +466,7 @@ class ShibbolethController extends BackendController
                 return ['status' => 'autoregistration'];
             }
 
-            if (\Yii::$app->isCmsApplication()) {
+            if ($isLuyaApplication && \Yii::$app->isCmsApplication()) {
                 $viewToRender = 'bi-ask-signup';
                 $this->setActionLayout();
             } else {
@@ -475,12 +513,15 @@ class ShibbolethController extends BackendController
         if ($headers->get('serialNumber')) {
             $type = 'header_idm';
             $dataFetch = $headers;
+
         } else if ($headers->get('saml-attribute-codicefiscale') || $headers->get('Shib-Metadata-codicefiscale')) {
             $type = 'header_spid';
             $dataFetch = $headers;
+
         } else if ($sessionIDM && $sessionIDM['matricola']) {
             $type = 'idm';
             $dataFetch = $headers;
+
         } else if ($sessionIDM && $sessionIDM['saml-attribute-codicefiscale']) {
             $type = 'spid';
             $dataFetch = $sessionIDM;
@@ -538,20 +579,48 @@ class ShibbolethController extends BackendController
             }
 
             /** Override di matricola nel caso di metodo di accesso senza codice fiscale */
-            if (in_array($dataFetch->get('saml-attribute-originedatiutente'), $this->accessMethodsWithoutCF)) {
-                // la matricola va presa opportunamente in base alla tipologia di accesso
-                switch ($dataFetch->get('saml-attribute-originedatiutente')) {
-                    case 'UTENTE':
-                        $matricola = $dataFetch->get('saml-attribute-nomeutente') ?: $dataFetch->get('Shib-Metadata-nomeutente');
-                        break;
+            if (!empty($dataFetch) && !empty($dataFetch->get('saml-attribute-originedatiutente'))) {
+                if (in_array($dataFetch->get('saml-attribute-originedatiutente'), $this->accessMethodsWithoutCF)) {
+                    // la matricola va presa opportunamente in base alla tipologia di accesso
+                    switch ($dataFetch->get('saml-attribute-originedatiutente')) {
+                        case 'UTENTE':
+                            $matricola = $dataFetch->get('saml-attribute-nomeutente') ?: $dataFetch->get('Shib-Metadata-nomeutente');
+                            $codiceFiscale = $matricola;
+                            break;
 
-                    case 'EIDAS':
-                        $matricola = $dataFetch->get('saml-attribute-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
-                        break;
+                        case 'EIDAS':
+                            $matricola = $dataFetch->get('saml-attribute-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
+                            break;
 
-                    // di default se esiste prendiamo identificativoutente...
-                    default:
-                        $matricola = $dataFetch->get('saml-attribute-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
+                        // di default se esiste prendiamo identificativoutente...
+                        default:
+                            $matricola = $dataFetch->get('saml-attribute-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
+                    }
+                }
+            } else if (!empty($dataFetch) && !empty($dataFetch->get('shib-metadata-originedatiutente'))) {
+                if (in_array($dataFetch->get('shib-metadata-originedatiutente'), $this->accessMethodsWithoutCF)) {
+                    switch ($dataFetch->get('shib-metadata-originedatiutente')) {
+                        case 'UTENTE':
+                            $matricola = $dataFetch->get('shib-metadata-nomeutente') ?: $dataFetch->get('Shib-Metadata-nomeutente');
+                            if ($codiceFiscale == 'NON_DISPONIBILE') {
+                                $codiceFiscale = $emailAddress;
+                            }
+                            break;
+
+                        case 'EIDAS':
+                            $matricola = $dataFetch->get('shib-metadata-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
+                            if ($codiceFiscale == 'NON_DISPONIBILE') {
+                                $codiceFiscale = $emailAddress;
+                            }
+                            break;
+
+                        // di default se esiste prendiamo identificativoutente...
+                        default:
+                            $matricola = $dataFetch->get('shib-metadata-identificativoutente') ?: $dataFetch->get('Shib-Metadata-identificativoutente');
+                            if ($codiceFiscale == 'NON_DISPONIBILE') {
+                                $codiceFiscale = $emailAddress;
+                            }
+                    }
                 }
             }
 
