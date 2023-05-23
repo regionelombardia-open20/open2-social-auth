@@ -288,7 +288,7 @@ class ShibbolethController extends BackendController
      */
     protected function procedure($confirmLink = false, $render = true)
     {
-        $isLuyaApplication = \Yii::$app instanceof luya\web\Application;
+        $isLuyaApplication = \Yii::$app instanceof \luya\web\Application;
 
         //Store data into session
         $userDatas = $this->storeDataInSession();

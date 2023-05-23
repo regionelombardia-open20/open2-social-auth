@@ -24,6 +24,7 @@ use yii\filters\AccessControl;
 use yii\helpers\Url;
 use yii\authclient\OpenIdConnect;
 use yii\log\Logger;
+use Exception;
 
 class AgidLoginController extends BackendController
 {

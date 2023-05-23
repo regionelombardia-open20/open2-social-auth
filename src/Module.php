@@ -59,6 +59,24 @@ class Module extends AmosModule implements BootstrapInterface {
     public $enablePuaLogin = false;
 
     /**
+     * If set to true it enable PUA Login
+     * @var type
+     */
+    public $enablePuaRegister = false;
+
+    /**
+     * If set to true it enable PUA Login
+     * @var type
+     */
+    public $enableCredentialRequest = false;
+
+    /**
+     * If set to true it enable PUA Login with controll token
+     * @var type
+     */
+    public $enableTokenControll = false;
+
+    /**
      * Only client_id and client_secret are required.
      * E.g.:
      * ```php

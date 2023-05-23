@@ -257,7 +257,7 @@ class SocialAuthUtility
      */
     public static function getLoginLink()
     {
-        $isLuyaApplication = \Yii::$app instanceof  luya\web\Application;
+        $isLuyaApplication = \Yii::$app instanceof  \luya\web\Application;
 
         if ($isLuyaApplication && \Yii::$app->isCmsApplication()) {
             if (\Yii::$app->params['linkConfigurations']['loginLinkCommon']) {

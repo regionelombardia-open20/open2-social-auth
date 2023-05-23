@@ -11,6 +11,8 @@
 
 use yii\helpers\Html;
 use open20\amos\core\icons\AmosIcons;
+use open20\amos\socialauth\models\SocialAuthUsers;
+
 ?>
 <div class="social-auth-bar">
     <?php

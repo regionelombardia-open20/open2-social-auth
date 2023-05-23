@@ -14,17 +14,16 @@ namespace open20\amos\socialauth\controllers;
 use open20\amos\admin\AmosAdmin;
 use open20\amos\admin\models\UserProfile;
 use open20\amos\core\controllers\BackendController;
-use open20\amos\core\helpers\Html;
 use open20\amos\core\user\User;
+use open20\amos\invitations\models\Invitation;
 use open20\amos\socialauth\models\SocialIdmUser;
 use open20\amos\socialauth\Module;
 use open20\amos\socialauth\utility\SocialAuthUtility;
 use Yii;
-use yii\base\Action;
 use yii\filters\AccessControl;
 use yii\helpers\Url;
-use yii\authclient\OpenIdConnect;
 use yii\log\Logger;
+use yii\web\Response;
 
 class PuaPaController extends BackendController {
 
@@ -67,7 +66,7 @@ class PuaPaController extends BackendController {
             $this->config = \yii\helpers\ArrayHelper::merge($this->config, Module::instance()->puaConfiguration);
             if (empty($this->config['clientId']) || empty($this->config['clientSecret'])) {
                 throw new \yii\base\InvalidConfigException(\Yii::t(
-                                        'amosapp', "Impossibile utilizzare il PUA senza impostare clientId e clientSecret."
+                    'amosapp', "Impossibile utilizzare il PUA senza impostare clientId e clientSecret."
                 ));
             }
             if ($module->puaUseFrontendUrl == false) {
@@ -90,8 +89,9 @@ class PuaPaController extends BackendController {
                         'actions' => [
                             'connect',
                             'login',
+                            'register'
                         ],
-                    //'roles' => ['*']
+                        //'roles' => ['*']
                     ],
                     [
                         'allow' => true,
@@ -113,17 +113,23 @@ class PuaPaController extends BackendController {
 
             $client = $this->getClient();
             $baseUrl = $this->getBaseUrlPlatform();
-            $stringNonce = bin2hex(openssl_random_pseudo_bytes(6));         
+            $stringNonce = bin2hex(openssl_random_pseudo_bytes(6));
             $client->setValidateAuthNonce(bin2hex(openssl_random_pseudo_bytes(6)));
-            
+
             $url = $client->buildAuthUrl(['client_id' => $this->config['clientId'], 'redirect_uri' => $baseUrl . '/socialauth/pua-pa/login']);
-           
+
             $state = $this->getStateFromUrl($url);
             $nonce = $this->getNonceFromUrl($url);
 
             $session = \Yii::$app->session;
             $session->set(self::LOGGED_WITH_OPEN_ID_CONNECT, $state);
             $session->set(self::LOGGED_WITH_OPEN_ID_CONNECT_NONCE, $nonce);
+
+            $token = \Yii::$app->request->get()['invitation_token'];
+            $iid = \Yii::$app->request->get()['iid'];
+
+            $session->set('invitation_token', $token);
+            $session->set('iid', $iid);
             if (!empty($redir)) {
                 $session->set(self::LOGGED_WITH_OPEN_ID_CONNECT_REDIRECT, $redir);
             }
@@ -146,29 +152,29 @@ class PuaPaController extends BackendController {
             $client = $this->getClient();
             if ($socialModule->useBasicAuthPua == true) {
                 $request = $client->createRequest()
-                        ->setMethod('POST')
-                        ->setUrl('connect/token')
-                        ->addHeaders(['Authorization' => 'Basic ' . \yii\helpers\BaseStringHelper::base64UrlEncode($client->clientId . ":" . $client->clientSecret)])
-                        ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
-                        ->setData([
-                    //                'client_id' => $client->clientId,
-                    //                'client_secret' => $client->clientSecret,
-                    'grant_type' => 'authorization_code',
-                    'code' => $code,
-                    'redirect_uri' => $this->getBaseUrlPlatform() . '/socialauth/pua-pa/login',
-                ]);
+                    ->setMethod('POST')
+                    ->setUrl('connect/token')
+                    ->addHeaders(['Authorization' => 'Basic ' . \yii\helpers\BaseStringHelper::base64UrlEncode($client->clientId . ":" . $client->clientSecret)])
+                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
+                    ->setData([
+                        //                'client_id' => $client->clientId,
+                        //                'client_secret' => $client->clientSecret,
+                        'grant_type' => 'authorization_code',
+                        'code' => $code,
+                        'redirect_uri' => $this->getBaseUrlPlatform() . '/socialauth/pua-pa/login',
+                    ]);
             } else {
                 $request = $client->createRequest()
-                        ->setMethod('POST')
-                        ->setUrl('connect/token')
-                        ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
-                        ->setData([
-                    'client_id' => $client->clientId,
-                    'client_secret' => $client->clientSecret,
-                    'grant_type' => 'authorization_code',
-                    'code' => $code,
-                    'redirect_uri' => $this->getBaseUrlPlatform() . '/socialauth/pua-pa/login',
-                ]);
+                    ->setMethod('POST')
+                    ->setUrl('connect/token')
+                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
+                    ->setData([
+                        'client_id' => $client->clientId,
+                        'client_secret' => $client->clientSecret,
+                        'grant_type' => 'authorization_code',
+                        'code' => $code,
+                        'redirect_uri' => $this->getBaseUrlPlatform() . '/socialauth/pua-pa/login',
+                    ]);
             }
 
             $response = $request->send();
@@ -184,20 +190,33 @@ class PuaPaController extends BackendController {
             $session->set(self::LOGGED_WITH_OPEN_ID_CONNECT_ID_TOKEN, $content->id_token);
 
             $requestUser = $client->createRequest()
-                    ->setMethod('POST')
-                    ->setUrl('connect/userinfo')
-                    ->addHeaders(['Authorization' => $content->token_type . ' ' . $content->access_token])
-                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded']);
+                ->setMethod('POST')
+                ->setUrl('connect/userinfo')
+                ->addHeaders(['Authorization' => $content->token_type . ' ' . $content->access_token])
+                ->addHeaders(['content-type' => 'application/x-www-form-urlencoded']);
 
             $userinfo = $requestUser->send();
 
             $user = false;
             $data = [];
-     
+
             if ($userinfo->isOk && !empty($userinfo->content)) {
                 $data = json_decode($userinfo->content);
                 $user = $this->setUser($data);
             }
+
+            Yii::$app->session->set('name', $data->name);
+            Yii::$app->session->set('nickname', $data->nickname);
+            Yii::$app->session->set('given_name', $data->given_name);
+            Yii::$app->session->set('family_name', $data->family_name);
+            Yii::$app->session->set('sub', $data->sub);
+
+            if ($user == "notFound"){
+                $baseUrl = $this->getBaseUrlPlatform() . '/socialauth/pua-pa/register';
+                $url = $baseUrl;// . '?' . http_build_query($data);
+                return $this->redirect($url);
+            }
+
             if ($user && !empty($data)) {
                 $loginTimeout = \Yii::$app->params['loginTimeout'] ?: 3600;
 
@@ -212,13 +231,162 @@ class PuaPaController extends BackendController {
                     return $this->goHome();
                 }
             }
-            if ($socialModule->enableRegister) {
+            if ($socialModule->enablePuaRegister) {
                 \Yii::$app->getSession()->addFlash('danger', Module::t('amossocialauth', 'Login Failed'));
             }
-            return $this->redirect([SocialAuthUtility::getLoginLink()]);
+            return $this->goHome();
         } catch (Exception $ex) {
             Yii::getLogger()->log($ex->getTraceAsString(), Logger::LEVEL_ERROR);
         }
+    }
+
+    /**
+     * @return string|Response
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function actionRegister()
+    {
+        //action per la registrazione di un utente in piattaforma attraverso il login tramite PUA
+        $this->setUpLayout('main');
+        $data = [];
+
+        $data['name'] = Yii::$app->session->get('name');
+        $data['nickname'] = Yii::$app->session->get('nickname');
+        $data['given_name'] = Yii::$app->session->get('given_name');
+        $data['family_name'] = Yii::$app->session->get('family_name');
+        $data['sub'] = Yii::$app->session->get('sub');
+
+        /**
+         * If signup is not enabled
+         * */
+        if (!$this->module->enableRegister && !(($this->module->enableRegisterContext == true) && !empty($this->module->enableRegisterModuleName) && !empty(\Yii::$app->getModule($this->module->enableRegisterModuleName)) && filter_input(INPUT_GET, 'contextModelId'))) {
+            if (!empty($this->module->textWarningForRegisterDisabled)) {
+                Yii::$app->session->addFlash('warning',
+                    AmosAdmin::t('amosadmin', $this->module->textWarningForRegisterDisabled));
+            } else {
+                Yii::$app->session->addFlash('danger', AmosAdmin::t('amosadmin', 'Signup Disabled'));
+            }
+
+            return $this->goHome();
+        }
+
+        /**
+         * If the mail is not set i can't create user
+         *
+         * if(empty($userProfile->email)) {
+         * Yii::$app->session->addFlash('danger', AmosAdmin::t('amosadmin', 'Unable to register, missing mail permission'));
+         *
+         * return $this->goHome();
+         * } */
+        /** @var RegisterForm $model */
+        $adminModule = AmosAdmin::getInstance();
+        $model = $adminModule->createModel('RegisterForm');
+
+        //pre-compile form datas from get params
+        $getParams = \Yii::$app->request->get();
+
+        // Invitation User id
+        $iuid = isset($getParams['iuid']) ? $getParams['iuid'] : null;
+
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+
+            $this->beforeRegisterNewUser($model);
+
+            /**
+             * @var $newUser integer False or UserId
+             */
+            $newUser = $adminModule->createNewAccount(
+                $model->nome, $model->cognome, $model->email, $model->privacy, false, null,
+                \Yii::$app->request->post('redirectUrl')
+            );
+
+            if (!empty($newUser['user'])) {
+                $user = $newUser['user'];
+            }
+
+            /**
+             * If $newUser is false the user is not created
+             */
+            if (!$newUser || isset($newUser['error'])) {
+                $result_message = [];
+                $errorMail      = ($model->email ? $model->email : '');
+                array_push($result_message,
+                    AmosAdmin::t('amosadmin', '#error_register_user', ['errorMail' => $errorMail]));
+
+                return $this->render('security-message',
+                    [
+                        'title_message' => AmosAdmin::t('amosadmin', 'Spiacenti'),
+                        'result_message' => $result_message,
+                        'go_to_login_url' => \luya\helpers\Url::current()
+                    ]);
+            }
+
+            $userId = $newUser['user']->id;
+
+            /** @var UserProfile $userProfileModel */
+            $userProfileModel = $adminModule->createModel('UserProfile');
+            /**
+             * @var $newUserProfile UserProfile
+             */
+            $newUserProfile   = $userProfileModel::findOne(['user_id' => $userId]);
+
+            /**
+             * If $newUser is false the user is not created
+             */
+            if (!$newUserProfile || !$newUserProfile->id) {
+
+                return $this->render('security-message',
+                    [
+                        'title_message' => AmosAdmin::t('amosadmin', 'Errore'),
+                        'result_message' => AmosAdmin::t('amosadmin', 'Error when loading profile data, try again'),
+                        'go_to_login_url' => Url::current()
+                    ]);
+            }
+
+            $data['given_name'] = $model->email;
+            $data['family_name'] = $model->cognome;
+            $data['email'] = $model->email;
+
+            $this->setIdmUser($data, $user);
+
+            $iuid = \Yii::$app->request->post('iuid');
+            if ($user && !empty($data)) {
+                if (!empty($data['nickname'])) {
+                    SocialAuthUtility::updateFiscalCode($user->id, $data['nickname']);
+                }
+            }
+
+            if ($user && !empty($data)) {
+                $loginTimeout = \Yii::$app->params['loginTimeout'] ?: 3600;
+
+                $signIn = \Yii::$app->user->login($user, $loginTimeout);
+                if ($signIn) {
+                    if (!empty($data['nickname'])) {
+                        SocialAuthUtility::updateFiscalCode($user->id, $data['nickname']);
+                    }
+
+                    if (!empty($redir)) {
+                        return $this->redirect([$redir]);
+                    }
+                    return $this->goHome();
+                }
+            }
+
+        }
+
+        if (isset(\Yii::$app->params['linkConfigurations']['loginLinkCommon'])) {
+            $loginUrl = \Yii::$app->params['linkConfigurations']['loginLinkCommon'];
+        } else {
+            $loginUrl = '/site/login';
+        }
+
+        return $this->render('register',
+            [
+                'model' => $model,
+                'iuid' => $iuid,
+                'loginUrl' => $loginUrl,
+                'codiceFiscale' => $data['nickname']
+            ]);
     }
 
     /**
@@ -228,9 +396,12 @@ class PuaPaController extends BackendController {
      */
     protected function setUser($data) {
         $socialModule = Module::getInstance();
+        $session = \Yii::$app->session;
+        $token = $session->get('invitation_token');
+        $iid = $session->get('iid');
 
         try {
-            $n = 0; 
+            $n = 0;
             if (!empty($data->nickname)) {
                 $userByCF = UserProfile::find()->andWhere(['codice_fiscale' => $data->nickname]);
                 if ($userByCF->count() == 1) {
@@ -244,31 +415,24 @@ class PuaPaController extends BackendController {
                     }
                 }
                 if ($n == 0) {
-                    if (!$socialModule->enableRegister) {
+                    if (!$socialModule->enablePuaRegister) {
                         Yii::$app->session->addFlash(
-                                'danger', Module::t('amossocialauth', 'Unable to register, user creation disabled')
+                            'danger', Module::t('amossocialauth', 'Registrazione in piattaforma disabilitata: non è possibile procedere con la creazione del nuovo utente')
                         );
-
                         return null;
                     }
-                    /** @var AmosAdmin $adminModule */
-                    $adminModule = AmosAdmin::getInstance();
-
-                    $newUser = $adminModule->createNewAccount(
-                            $data->given_name, $data->family_name, $data->email, true
-                    );
-                    if (!$newUser || isset($newUser['error'])) {
+                    elseif (isset($token)){
+                        $invitationModel = Invitation::findOne($iid);
+                        if($invitationModel->token == $token && $invitationModel->isTokenValid()){
+                            return "notFound";
+                        }
+                    } elseif ($socialModule->enableTokenControll){
                         Yii::$app->session->addFlash(
-                                'danger', Module::t('amossocialauth', 'Unable to register, user creation error')
+                            'danger', Module::t('amossocialauth', 'Non sei autorizzato ad accedere in piattaforma')
                         );
+                        return null;
                     }
-                    if (!empty($newUser['user'])) {
-                        $user = $newUser['user'];
-
-                        $this->setIdmUser($data, $user);
-
-                        return $user;
-                    }
+                    return "notFound";
                 }
             }
             return null;
@@ -279,7 +443,15 @@ class PuaPaController extends BackendController {
     }
 
     /**
-     * 
+     * @param RegisterForm $model
+     */
+    protected function beforeRegisterNewUser($model)
+    {
+
+    }
+
+    /**
+     *
      * @param stdClass $data
      * @param open20\amos\core\user\User $user
      */
@@ -290,11 +462,11 @@ class PuaPaController extends BackendController {
             if (empty($idmUser)) {
                 $idmUser = new SocialIdmUser();
                 $idmUser->user_id = $user->id;
-                $idmUser->numeroMatricola = $data->sub;
-                $idmUser->codiceFiscale = $data->nickname;
-                $idmUser->nome = $data->given_name;
-                $idmUser->cognome = $data->family_name;
-                $idmUser->emailAddress = $data->email;                
+                $idmUser->numeroMatricola = $data['sub'];
+                $idmUser->codiceFiscale = $data['nickname'];
+                $idmUser->nome = $data['given_name'];
+                $idmUser->cognome = $data['family_name'];
+                $idmUser->emailAddress = $data['email'];
                 $idmUser->rawData = json_encode((array) $data);
                 $idmUser->accessMethod = 'PUA-PA';
                 $idmUser->save(false);
@@ -320,7 +492,7 @@ class PuaPaController extends BackendController {
     }
 
     /**
-     * 
+     *
      * @param string $url
      * @return string
      */
@@ -342,7 +514,7 @@ class PuaPaController extends BackendController {
     }
 
     /**
-     * 
+     *
      * @param string $url
      * @return string
      */
@@ -377,7 +549,7 @@ class PuaPaController extends BackendController {
     }
 
     /**
-     * 
+     *
      * @return string
      */
     protected function getBaseUrlPlatform() {
@@ -414,14 +586,14 @@ class PuaPaController extends BackendController {
             $nonce = $session->get(self::LOGGED_WITH_OPEN_ID_CONNECT_NONCE);
 
             $request = $client->createRequest()
-                    ->setMethod('GET')
-                    ->setUrl('session/end')
-                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
-                    ->setData([
-                'id_token_hint' => $id_token,
-                'post_logout_redirect_uri' => (empty($redir) ? $this->getBaseUrlPlatform() : $this->getBaseUrlPlatform() . $redir),
-                'state' => $state
-            ]);
+                ->setMethod('GET')
+                ->setUrl('session/end')
+                ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
+                ->setData([
+                    'id_token_hint' => $id_token,
+                    'post_logout_redirect_uri' => (empty($redir) ? $this->getBaseUrlPlatform() : $this->getBaseUrlPlatform() . $redir),
+                    'state' => $state
+                ]);
 
             $response = $request->send();
             if ($response->isOk) {
