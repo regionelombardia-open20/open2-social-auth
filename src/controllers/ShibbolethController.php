@@ -173,6 +173,9 @@ class ShibbolethController extends BackendController
         $os = \Yii::$app->request->get('os');
         if (!empty($fcm_token)) {
             \Yii::$app->session->set('mobile_fcs_token', base64_decode($fcm_token));
+            if (!$this->isGuestUser()) {
+                \Yii::$app->user->logout();
+            }
         }
         if (!empty($os)) {
             \Yii::$app->session->set('mobile_os', $os);
@@ -182,7 +185,8 @@ class ShibbolethController extends BackendController
     /**
      * @return array
      */
-    public function getParamsMobileFromSession(){
+    public function getParamsMobileFromSession()
+    {
         $fcm_token = \Yii::$app->session->get('mobile_fcs_token');
         $os = \Yii::$app->session->get('mobile_os');
 
@@ -568,14 +572,14 @@ class ShibbolethController extends BackendController
                     }
                     break;
                 case 'header_spid':
-                    {
-                        $matricola = $dataFetch->get('saml-attribute-codicefiscale') ?: $dataFetch->get('Shib-Metadata-codicefiscale');
-                        $nome = $dataFetch->get('saml-attribute-nome') ?: $dataFetch->get('Shib-Metadata-nome');
-                        $cognome = $dataFetch->get('saml-attribute-cognome') ?: $dataFetch->get('Shib-Metadata-cognome');
-                        $emailAddress = $dataFetch->get('saml-attribute-emailaddress') ?: $dataFetch->get('Shib-Metadata-emailaddress');
-                        $codiceFiscale = $dataFetch->get('saml-attribute-codicefiscale') ?: $dataFetch->get('Shib-Metadata-codicefiscale');
-                        $rawData = $dataFetch->toArray();
-                    }
+                {
+                    $matricola = $dataFetch->get('saml-attribute-codicefiscale') ?: $dataFetch->get('Shib-Metadata-codicefiscale');
+                    $nome = $dataFetch->get('saml-attribute-nome') ?: $dataFetch->get('Shib-Metadata-nome');
+                    $cognome = $dataFetch->get('saml-attribute-cognome') ?: $dataFetch->get('Shib-Metadata-cognome');
+                    $emailAddress = $dataFetch->get('saml-attribute-emailaddress') ?: $dataFetch->get('Shib-Metadata-emailaddress');
+                    $codiceFiscale = $dataFetch->get('saml-attribute-codicefiscale') ?: $dataFetch->get('Shib-Metadata-codicefiscale');
+                    $rawData = $dataFetch->toArray();
+                }
             }
 
             /** Override di matricola nel caso di metodo di accesso senza codice fiscale */

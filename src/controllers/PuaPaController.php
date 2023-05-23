@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Aria S.p.A.
  * OPEN 2.0
@@ -25,14 +26,15 @@ use yii\helpers\Url;
 use yii\authclient\OpenIdConnect;
 use yii\log\Logger;
 
-class AgidLoginController extends BackendController
-{
+class PuaPaController extends BackendController {
+
     /**
      * @var string $layout
      */
     public $layout = 'login';
 
-    const LOGGED_WITH_OPEN_ID_CONNECT          = 'OpenIdConnect';
+    const LOGGED_WITH_OPEN_ID_CONNECT = 'OpenIdConnect';
+    const LOGGED_WITH_OPEN_ID_CONNECT_NONCE = 'OpenIdConnect';
     const LOGGED_WITH_OPEN_ID_CONNECT_REDIRECT = 'OpenIdConnect-redirect';
     const LOGGED_WITH_OPEN_ID_CONNECT_ID_TOKEN = 'OpenIdConnect-id_token';
 
@@ -48,38 +50,37 @@ class AgidLoginController extends BackendController
      * @var array $config
      */
     public $config = [
-        'name' => 'Agid',
-        'title' => 'Agid Login',
-        'issuerUrl' => 'https://login.agid.gov.it',
-        'authUrl' => 'https://login.agid.gov.it/auth',
-        'apiBaseUrl' => 'https://login.agid.gov.it',
+        'name' => 'Pua',
+        'title' => 'Pua Login',
+        'issuerUrl' => 'https://sso-coll.dfp.gov.it',
+        'authUrl' => 'https://sso-coll.dfp.gov.it/connect/authorize',
+        'apiBaseUrl' => 'https://sso-coll.dfp.gov.it',
         'scope' => 'openid profile',
-        'tokenUrl' => 'https://login.agid.gov.it/token'
+        'tokenUrl' => 'https://sso-coll.dfp.gov.it/connect/token',
     ];
 
-    public function init()
-    {
+    public function init() {
         parent::init();
 
         $module = Module::getInstance();
-        if ($module->enableAgidLogin) {
-            $this->config = \yii\helpers\ArrayHelper::merge($this->config, Module::instance()->agidLoginConfiguration);
+        if ($module->enablePuaLogin) {
+            $this->config = \yii\helpers\ArrayHelper::merge($this->config, Module::instance()->puaConfiguration);
             if (empty($this->config['clientId']) || empty($this->config['clientSecret'])) {
                 throw new \yii\base\InvalidConfigException(\Yii::t(
-                    'amosapp', "Impossibile utilizzare l'Agid Login senza impostare clientId e clientSecret."
+                                        'amosapp', "Impossibile utilizzare il PUA senza impostare clientId e clientSecret."
                 ));
             }
-            if ($module->agidLoginUseFrontendUrl == false) {
-                $this->useFrontendUrl = $module->agidLoginUseFrontendUrl;
+            if ($module->puaUseFrontendUrl == false) {
+                $this->useFrontendUrl = $module->puaUseFrontendUrl;
             }
-        } else return $this->goHome();
+        } else
+            return $this->goHome();
     }
 
     /**
      * @inheritdoc
      */
-    public function behaviors()
-    {
+    public function behaviors() {
         return [
             'access' => [
                 'class' => AccessControl::className(),
@@ -104,21 +105,25 @@ class AgidLoginController extends BackendController
         ];
     }
 
-    public function actionConnect($redir = null)
-    {
+    public function actionConnect($redir = null) {
         try {
             if (!$this->isGuestUser()) {
                 return $this->goHome();
             }
 
-            $client  = $this->getClient();
+            $client = $this->getClient();
             $baseUrl = $this->getBaseUrlPlatform();
-            $url     = $client->buildAuthUrl(['redirect_uri' => $baseUrl.'/socialauth/agid-login/login']);
-
+            $stringNonce = bin2hex(openssl_random_pseudo_bytes(6));         
+            $client->setValidateAuthNonce(bin2hex(openssl_random_pseudo_bytes(6)));
+            
+            $url = $client->buildAuthUrl(['client_id' => $this->config['clientId'], 'redirect_uri' => $baseUrl . '/socialauth/pua-pa/login']);
+           
             $state = $this->getStateFromUrl($url);
+            $nonce = $this->getNonceFromUrl($url);
 
             $session = \Yii::$app->session;
             $session->set(self::LOGGED_WITH_OPEN_ID_CONNECT, $state);
+            $session->set(self::LOGGED_WITH_OPEN_ID_CONNECT_NONCE, $nonce);
             if (!empty($redir)) {
                 $session->set(self::LOGGED_WITH_OPEN_ID_CONNECT_REDIRECT, $redir);
             }
@@ -129,8 +134,7 @@ class AgidLoginController extends BackendController
         }
     }
 
-    public function actionLogin($code, $state)
-    {
+    public function actionLogin($code, $state, $nonce = null) {
         $socialModule = Module::getInstance();
 
         try {
@@ -140,30 +144,30 @@ class AgidLoginController extends BackendController
             }
 
             $client = $this->getClient();
-            if ($socialModule->useBasicAuthAgidLogin == true) {
+            if ($socialModule->useBasicAuthPua == true) {
                 $request = $client->createRequest()
-                    ->setMethod('POST')
-                    ->setUrl('token')
-                    ->addHeaders(['Authorization' => 'Basic '.\yii\helpers\BaseStringHelper::base64UrlEncode($client->clientId.":".$client->clientSecret)])
-                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
-                    ->setData([
+                        ->setMethod('POST')
+                        ->setUrl('connect/token')
+                        ->addHeaders(['Authorization' => 'Basic ' . \yii\helpers\BaseStringHelper::base64UrlEncode($client->clientId . ":" . $client->clientSecret)])
+                        ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
+                        ->setData([
                     //                'client_id' => $client->clientId,
                     //                'client_secret' => $client->clientSecret,
                     'grant_type' => 'authorization_code',
                     'code' => $code,
-                    'redirect_uri' => $this->getBaseUrlPlatform().'/socialauth/agid-login/login',
+                    'redirect_uri' => $this->getBaseUrlPlatform() . '/socialauth/pua-pa/login',
                 ]);
             } else {
                 $request = $client->createRequest()
-                    ->setMethod('POST')
-                    ->setUrl('token')
-                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
-                    ->setData([
+                        ->setMethod('POST')
+                        ->setUrl('connect/token')
+                        ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
+                        ->setData([
                     'client_id' => $client->clientId,
                     'client_secret' => $client->clientSecret,
                     'grant_type' => 'authorization_code',
                     'code' => $code,
-                    'redirect_uri' => $this->getBaseUrlPlatform().'/socialauth/agid-login/login',
+                    'redirect_uri' => $this->getBaseUrlPlatform() . '/socialauth/pua-pa/login',
                 ]);
             }
 
@@ -172,6 +176,7 @@ class AgidLoginController extends BackendController
             $session = \Yii::$app->session;
 
             $state = $session->get(self::LOGGED_WITH_OPEN_ID_CONNECT);
+            $nonce = $session->get(self::LOGGED_WITH_OPEN_ID_CONNECT_NONCE);
             $redir = $session->get(self::LOGGED_WITH_OPEN_ID_CONNECT_REDIRECT);
 
             $content = json_decode($response->content);
@@ -179,15 +184,16 @@ class AgidLoginController extends BackendController
             $session->set(self::LOGGED_WITH_OPEN_ID_CONNECT_ID_TOKEN, $content->id_token);
 
             $requestUser = $client->createRequest()
-                ->setMethod('POST')
-                ->setUrl('userinfo')
-                ->addHeaders(['Authorization' => $content->token_type.' '.$content->access_token])
-                ->addHeaders(['content-type' => 'application/x-www-form-urlencoded']);
+                    ->setMethod('POST')
+                    ->setUrl('connect/userinfo')
+                    ->addHeaders(['Authorization' => $content->token_type . ' ' . $content->access_token])
+                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded']);
 
             $userinfo = $requestUser->send();
 
             $user = false;
             $data = [];
+     
             if ($userinfo->isOk && !empty($userinfo->content)) {
                 $data = json_decode($userinfo->content);
                 $user = $this->setUser($data);
@@ -197,8 +203,8 @@ class AgidLoginController extends BackendController
 
                 $signIn = \Yii::$app->user->login($user, $loginTimeout);
                 if ($signIn) {
-                    if (!empty($data->fiscalNumber)) {
-                        SocialAuthUtility::updateFiscalCode($user->id, $data->fiscalNumber);
+                    if (!empty($data->nickname)) {
+                        SocialAuthUtility::updateFiscalCode($user->id, $data->nickname);
                     }
                     if (!empty($redir)) {
                         return $this->redirect([$redir]);
@@ -220,16 +226,15 @@ class AgidLoginController extends BackendController
      * @param stdClass $data
      * @return null|open20\amos\core\user\User
      */
-    protected function setUser($data)
-    {
+    protected function setUser($data) {
         $socialModule = Module::getInstance();
 
         try {
-            $n = 0;
-            if (!empty($data->fiscalNumber)) {
-                $userByCF = UserProfile::find()->andWhere(['codice_fiscale' => $data->fiscalNumber]);
+            $n = 0; 
+            if (!empty($data->nickname)) {
+                $userByCF = UserProfile::find()->andWhere(['codice_fiscale' => $data->nickname]);
                 if ($userByCF->count() == 1) {
-                    $n    = 1;
+                    $n = 1;
                     $user = $userByCF->one()->user;
                     if ($this->isUserDisabled($user->id)) {
                         return null;
@@ -241,7 +246,7 @@ class AgidLoginController extends BackendController
                 if ($n == 0) {
                     if (!$socialModule->enableRegister) {
                         Yii::$app->session->addFlash(
-                            'danger', Module::t('amossocialauth', 'Unable to register, user creation disabled')
+                                'danger', Module::t('amossocialauth', 'Unable to register, user creation disabled')
                         );
 
                         return null;
@@ -250,11 +255,11 @@ class AgidLoginController extends BackendController
                     $adminModule = AmosAdmin::getInstance();
 
                     $newUser = $adminModule->createNewAccount(
-                        $data->firstname, $data->lastname, $data->email, true
+                            $data->given_name, $data->family_name, $data->email, true
                     );
                     if (!$newUser || isset($newUser['error'])) {
                         Yii::$app->session->addFlash(
-                            'danger', Module::t('amossocialauth', 'Unable to register, user creation error')
+                                'danger', Module::t('amossocialauth', 'Unable to register, user creation error')
                         );
                     }
                     if (!empty($newUser['user'])) {
@@ -278,22 +283,20 @@ class AgidLoginController extends BackendController
      * @param stdClass $data
      * @param open20\amos\core\user\User $user
      */
-    protected function setIdmUser($data, $user)
-    {
+    protected function setIdmUser($data, $user) {
         try {
 
             $idmUser = SocialIdmUser::find()->andWhere(['user_id' => $user->id])->one();
             if (empty($idmUser)) {
-                $idmUser                  = new SocialIdmUser();
-                $idmUser->user_id         = $user->id;
+                $idmUser = new SocialIdmUser();
+                $idmUser->user_id = $user->id;
                 $idmUser->numeroMatricola = $data->sub;
-                $idmUser->codiceFiscale   = $data->fiscalNumber;
-                $idmUser->nome            = $data->firstname;
-                $idmUser->cognome         = $data->lastname;
-                $idmUser->emailAddress    = $data->email;
-                $idmUser->cellulare       = $data->phone;
-                $idmUser->rawData         = json_encode((array) $data);
-                $idmUser->accessMethod    = $data->provider;
+                $idmUser->codiceFiscale = $data->nickname;
+                $idmUser->nome = $data->given_name;
+                $idmUser->cognome = $data->family_name;
+                $idmUser->emailAddress = $data->email;                
+                $idmUser->rawData = json_encode((array) $data);
+                $idmUser->accessMethod = 'PUA-PA';
                 $idmUser->save(false);
             }
         } catch (Exception $ex) {
@@ -305,8 +308,7 @@ class AgidLoginController extends BackendController
      * @param $user
      * @return bool
      */
-    public function isUserDisabled($user_id)
-    {
+    public function isUserDisabled($user_id) {
         $user = User::findOne($user_id);
         if ($user) {
             if ($user->status == User::STATUS_DELETED || !$user->userProfile->attivo) {
@@ -322,15 +324,14 @@ class AgidLoginController extends BackendController
      * @param string $url
      * @return string
      */
-    protected function getStateFromUrl($url)
-    {
+    protected function getStateFromUrl($url) {
         $state = null;
         try {
 
-            $newQuery    = [];
+            $newQuery = [];
             $queryParams = explode('&', (parse_url($url)['query']));
             foreach ($queryParams as $v) {
-                $nq               = explode('=', $v);
+                $nq = explode('=', $v);
                 $newQuery[$nq[0]] = $nq[1];
             }
             $state = $newQuery['state'];
@@ -341,14 +342,35 @@ class AgidLoginController extends BackendController
     }
 
     /**
+     * 
+     * @param string $url
+     * @return string
+     */
+    protected function getNonceFromUrl($url) {
+        $nonce = null;
+        try {
+
+            $newQuery = [];
+            $queryParams = explode('&', (parse_url($url)['query']));
+            foreach ($queryParams as $v) {
+                $nq = explode('=', $v);
+                $newQuery[$nq[0]] = $nq[1];
+            }
+            $nonce = $newQuery['nonce'];
+        } catch (Exception $ex) {
+            Yii::getLogger()->log($ex->getTraceAsString(), Logger::LEVEL_ERROR);
+        }
+        return $nonce;
+    }
+
+    /**
      *
      * @return yii\authclient\OpenIdConnect $client
      */
-    public function getClient()
-    {
+    public function getClient() {
         if (empty(self::$client)) {
-            self::$client               = Yii::$app->authClientCollection->getClient('agid');
-            self::$client->clientId     = $this->config['clientId'];
+            self::$client = Yii::$app->authClientCollection->getClient('pua');
+            self::$client->clientId = $this->config['clientId'];
             self::$client->clientSecret = $this->config['clientSecret'];
         }
         return self::$client;
@@ -358,8 +380,7 @@ class AgidLoginController extends BackendController
      * 
      * @return string
      */
-    protected function getBaseUrlPlatform()
-    {
+    protected function getBaseUrlPlatform() {
         $baseUrl = Yii::$app->params['platform']['frontendUrl'];
         if ($this->useFrontendUrl == false) {
             $baseUrl = Yii::$app->params['platform']['backendUrl'];
@@ -370,8 +391,7 @@ class AgidLoginController extends BackendController
     /**
      * Controlli su utente guest - se possibile utilizzare CurrentUser::isPlatformGuest()
      */
-    private function isGuestUser()
-    {
+    private function isGuestUser() {
         $isGuestUser = Yii::$app->user->isGuest;
 
         // baso il controllo sull'usare CurrentUser::isPlatformGuest sul paramtro
@@ -382,8 +402,7 @@ class AgidLoginController extends BackendController
         return $isGuestUser;
     }
 
-    public function actionLogout($redir = null)
-    {
+    public function actionLogout($redir = null) {
         try {
 
             $client = $this->getClient();
@@ -391,26 +410,28 @@ class AgidLoginController extends BackendController
             $session = \Yii::$app->session;
 
             $id_token = $session->get(self::LOGGED_WITH_OPEN_ID_CONNECT_ID_TOKEN);
-            $state    = $session->get(self::LOGGED_WITH_OPEN_ID_CONNECT);
+            $state = $session->get(self::LOGGED_WITH_OPEN_ID_CONNECT);
+            $nonce = $session->get(self::LOGGED_WITH_OPEN_ID_CONNECT_NONCE);
 
             $request = $client->createRequest()
-                ->setMethod('GET')
-                ->setUrl('session/end')
-                ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
-                ->setData([
+                    ->setMethod('GET')
+                    ->setUrl('session/end')
+                    ->addHeaders(['content-type' => 'application/x-www-form-urlencoded'])
+                    ->setData([
                 'id_token_hint' => $id_token,
-                'post_logout_redirect_uri' => (empty($redir) ? $this->getBaseUrlPlatform() : $this->getBaseUrlPlatform().$redir),
+                'post_logout_redirect_uri' => (empty($redir) ? $this->getBaseUrlPlatform() : $this->getBaseUrlPlatform() . $redir),
                 'state' => $state
             ]);
 
             $response = $request->send();
             if ($response->isOk) {
                 $headers = $response->getHeaders()->toArray();
-                return \Yii::$app->getResponse()->redirect($client->apiBaseUrl.$headers['location'][0]);
+                return \Yii::$app->getResponse()->redirect($client->apiBaseUrl . $headers['location'][0]);
             }
             return $this->goHome();
         } catch (Exception $ex) {
             Yii::getLogger()->log($ex->getTraceAsString(), Logger::LEVEL_ERROR);
         }
     }
+
 }

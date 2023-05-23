@@ -237,7 +237,7 @@ class SocialAuthUtility
      */
     public static function getRegisterLink()
     {
-        $isLuyaApplication = \Yii::$app instanceof  luya\web\Application;
+        $isLuyaApplication = \Yii::$app instanceof  \luya\web\Application;
 
         if ($isLuyaApplication && \Yii::$app->isCmsApplication()) {
             if (\Yii::$app->params['linkConfigurations']['registrationLinkCommon']) {
