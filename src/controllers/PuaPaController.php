@@ -201,7 +201,7 @@ class PuaPaController extends BackendController {
             $data = [];
 
             if ($userinfo->isOk && !empty($userinfo->content)) {
-                $data = json_decode($userinfo->content);
+                $data = json_decode($userinfo->content, true);
                 $user = $this->setUser($data);
             }
 
@@ -402,8 +402,8 @@ class PuaPaController extends BackendController {
 
         try {
             $n = 0;
-            if (!empty($data->nickname)) {
-                $userByCF = UserProfile::find()->andWhere(['codice_fiscale' => $data->nickname]);
+            if (!empty($data['nickname'])) {
+                $userByCF = UserProfile::find()->andWhere(['codice_fiscale' => $data['nickname']]);
                 if ($userByCF->count() == 1) {
                     $n = 1;
                     $user = $userByCF->one()->user;
@@ -452,7 +452,7 @@ class PuaPaController extends BackendController {
 
     /**
      *
-     * @param stdClass $data
+     * @param array $data
      * @param open20\amos\core\user\User $user
      */
     protected function setIdmUser($data, $user) {
@@ -467,7 +467,7 @@ class PuaPaController extends BackendController {
                 $idmUser->nome = $data['given_name'];
                 $idmUser->cognome = $data['family_name'];
                 $idmUser->emailAddress = $data['email'];
-                $idmUser->rawData = json_encode((array) $data);
+                $idmUser->rawData = json_encode($data);
                 $idmUser->accessMethod = 'PUA-PA';
                 $idmUser->save(false);
             }
@@ -544,6 +544,7 @@ class PuaPaController extends BackendController {
             self::$client = Yii::$app->authClientCollection->getClient('pua');
             self::$client->clientId = $this->config['clientId'];
             self::$client->clientSecret = $this->config['clientSecret'];
+            self::$client->httpClient->setTransport('yii\httpclient\CurlTransport');
         }
         return self::$client;
     }
