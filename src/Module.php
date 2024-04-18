@@ -234,6 +234,19 @@ class Module extends AmosModule implements BootstrapInterface {
      * @var type
      */
     public $useBasicAuthPua = false;
+    
+    /**
+     * 
+     * @var bool
+     */
+    public $enableRegisterContext = false;
+    
+    /**
+     * 
+     * @var bool
+     */
+    public $enableRegisterModuleName = 'organizzazioni';
+    
 
     /**
      * @inheritdoc
