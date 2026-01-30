@@ -315,8 +315,8 @@ class ShibbolethController extends BackendController
         /** @var UserProfile|null $existsByFC */
         $existsByFC = null;
 
-        // Se l'origine dei dati è senza codice fiscale allora non essite nessun aggancio con con codice fiscale da valutare!
-        if (in_array(reset($userDatas['rawData']['saml-attribute-originedatiutente']), $this->accessMethodsWithoutCF)) {
+        // Se l'origine dei dati è senza codice fiscale allora non essite nessun aggancio con codice fiscale da valutare!
+        if (!empty( $userDatas['rawData']['saml-attribute-originedatiutente']) && in_array(reset($userDatas['rawData']['saml-attribute-originedatiutente']), $this->accessMethodsWithoutCF)) {
             $existsByFC = false;
         } else {
             /** @var UserProfile|null $existsByFC */

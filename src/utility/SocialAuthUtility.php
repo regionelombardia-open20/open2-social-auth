@@ -100,7 +100,10 @@ class SocialAuthUtility
             }
         }
 
-        $accessMethod = reset($userDatas['rawData']['saml-attribute-originedatiutente']);
+        $accessMethod = !empty($userDatas['rawData']['saml-attribute-originedatiutente']) ? reset($userDatas['rawData']['saml-attribute-originedatiutente']) : null;
+        if(is_null($accessMethod)) {
+            $accessMethod = !empty($userDatas['rawData']['shib-metadata-originedatiutente']) ? reset($userDatas['rawData']['shib-metadata-originedatiutente']) : null;
+        }
         // l'update del codice fiscale va fatto solo per le origini con codice fiscale.
         if (
             (in_array($accessMethod, self::$accessMethodsNotAlwaysWithCF) && isset($userDatas['codiceFiscale']) && !empty($userDatas['codiceFiscale'])) ||
@@ -128,7 +131,11 @@ class SocialAuthUtility
         }
 
         $socialIdmUser->accessMethod = $accessMethod;
-        $socialIdmUser->accessLevel = reset($userDatas['rawData']['saml-attribute-tipoautenticazione']);
+        $tipoAutenticazione = !empty($userDatas['rawData']['saml-attribute-tipoautenticazione']) ? reset($userDatas['rawData']['saml-attribute-tipoautenticazione']) : null;
+        if(is_null($accessMethod)) {
+            $tipoAutenticazione = !empty($userDatas['rawData']['shib-metadata-tipoautenticazione']) ? reset($userDatas['rawData']['shib-metadata-tipoautenticazione']) : null;
+        }
+        $socialIdmUser->accessLevel = $tipoAutenticazione;
         $socialIdmUser->rawData = serialize($userDatas['rawData']);
         $ok = $socialIdmUser->save(false);
 
