@@ -67,7 +67,7 @@ return [
     'Sei già registrato alla piattaforma?' => 'Already registered?',
     'Sei un nuovo utente?' => 'Are you a new user?',
     'Riconcilia il tuo profilo esisitente' => 'Enable your profile with spid',
-    "Grazie di aver effettuato l'accesso con la tua identità digitale. Se hai un’utenza già registrata su Open Innovation, clicca per riconciliare il tuo profilo esistente con l'Identità Digitale. Se invece sei un nuovo utente, finalizza la registrazione" => "Thank you for logging in with your Digital Identity. If you are already registered with your username on Open Innovation, click to reconcile your existing profile with the Digital Identity. If you are a new user, finalize the registration process.",
+    "Grazie di aver effettuato l'accesso con la tua identità digitale. Se hai un’utenza già registrata su {appName}, clicca per riconciliare il tuo profilo esistente con l'Identità Digitale. Se invece sei un nuovo utente, finalizza la registrazione" => "Thank you for logging in with your Digital Identity. If you are already registered with your username on Open Innovation, click to reconcile your existing profile with the Digital Identity. If you are a new user, finalize the registration process.",
     "BENVENUTO {nome} {cognome}" => "DEAR {nome} {cognome}",
     "Sei già registrato in piattaforma?" => "Are you already registered?",
     "Clicca qui per riconciliare il tuo profilo" => "Click here to reconcile your profile",

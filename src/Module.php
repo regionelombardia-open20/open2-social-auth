@@ -22,12 +22,13 @@ use Yii;
 use yii\base\BootstrapInterface;
 use yii\base\Event;
 use yii\helpers\ArrayHelper;
+use open20\amos\core\interfaces\BreadcrumbInterface;
 
 /**
  * Class Module
  * @package open20\amos\socialauth
  */
-class Module extends AmosModule implements BootstrapInterface {
+class Module extends AmosModule implements BootstrapInterface, BreadcrumbInterface {
 
     public static $CONFIG_FOLDER = 'config';
 
@@ -247,6 +248,12 @@ class Module extends AmosModule implements BootstrapInterface {
      */
     public $enableRegisterModuleName = 'organizzazioni';
     
+
+    /**
+     * If true, authorize referrers from oauth2_client table
+     * @var bool $authorizeReferrersFromOauth2Client
+     */
+    public $authorizeReferrersFromOauth2Client = false;
 
     /**
      * @inheritdoc
@@ -536,6 +543,28 @@ class Module extends AmosModule implements BootstrapInterface {
      */
     public function findSocialIdmByUserId($userId) {
         return SocialAuthUtility::findSocialIdmByUserId($userId);
+    }
+
+    /**
+     * Method for BreadcrumbInterface
+     * @return string[]
+     */
+    public function getIndexActions()
+    {
+        return [
+            'oauth2-client/index',
+        ];
+    }
+
+    /**
+     * Method for BreadcrumbInterface
+     * @return array
+     */
+    public function getControllerNames()
+    {
+        return [
+            'oauth2-client' => self::t('amossocialauth', "Federazione SSO"),
+        ];
     }
 
 }

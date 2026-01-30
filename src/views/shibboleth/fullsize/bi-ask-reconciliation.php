@@ -39,7 +39,7 @@ $loginLink = [\open20\amos\socialauth\utility\SocialAuthUtility::getLoginLink(),
         <div class="row">
             <div class="col-md text-center text-md-left px-5 pb-5">
                 <h2 class=""><?= Module::t('amossocialauth', 'spid_signup_welcome', ['nome' => $userDatas['nome'], 'cognome' => $userDatas['cognome']]) ?></h2>
-                <h4 class="title-login"><?= Module::t('amossocialauth', "Grazie di aver effettuato l'accesso con la tua identità digitale. Se hai un’utenza già registrata su Open Innovation, clicca per riconciliare il tuo profilo esistente con l'Identità Digitale. Se invece sei un nuovo utente, finalizza la registrazione", ['cf' => $userDatas['codiceFiscale']]) ?></h4>            </div>
+                <h4 class="title-login"><?= Module::t('amossocialauth', "Grazie di aver effettuato l'accesso con la tua identità digitale. Se hai un’utenza già registrata su {appName}, clicca per riconciliare il tuo profilo esistente con l'Identità Digitale. Se invece sei un nuovo utente, finalizza la registrazione", ['cf' => $userDatas['codiceFiscale'], 'appName' => Yii::$app->name]) ?></h4>            </div>
             <div class="col-md text-center text-md-left px-5">
                 <div>
                     <p><strong><?= Module::t('amossocialauth', 'Sei già registrato alla piattaforma?') ?></strong></p>

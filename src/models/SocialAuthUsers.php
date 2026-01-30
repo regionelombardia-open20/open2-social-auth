@@ -27,6 +27,7 @@ use open20\amos\socialauth\Module;
  * @property string $description User Description
  * @property string $firstName First Name
  * @property string $lastName Last Name
+ * @property string $fiscal_code Last Name
  * @property string $gender Gender
  * @property string $language Language
  * @property string $email Email
@@ -44,9 +45,18 @@ use open20\amos\socialauth\Module;
  * @property integer $birthYear Birth Year
  * @property string $job_title Job Name
  * @property string $organization_name Organization Name
+ * @property string $auth_level Organization Name
+ * @property string $auth_type Name
+ * @property string $access_token Name
+ * @property string $refresh_token Name
+ * @property string $expire_at Name
+ * @property string $raw_data Name
+ * @property string $token_invitation Name
  *
  * @property SocialAuthServices[] $services
  */
+
+
 class SocialAuthUsers extends Record
 {
     /**
@@ -64,8 +74,8 @@ class SocialAuthUsers extends Record
     {
         return [
             [['identifier', 'provider'], 'required'],
-            [['profileURL', 'webSiteURL', 'photoURL', 'displayName', 'description', 'firstName', 'lastName', 'gender', 'language', 'email', 'emailVerified', 'phone', 'address', 'country', 'region', 'city', 'provider', 'job_title', 'organization_name'], 'string'],
-            [['user_id', 'age', 'birthDay', 'birthMonth', 'birthYear', 'zip'], 'integer'],
+            [['token_invitation', 'access_token','refresh_token','fiscal_code','auth_level','auth_type', 'raw_data','profileURL', 'webSiteURL', 'photoURL', 'displayName', 'description', 'firstName', 'lastName', 'gender', 'language', 'email', 'emailVerified', 'phone', 'address', 'country', 'region', 'city', 'provider', 'job_title', 'organization_name'], 'string'],
+            [['expire_at', 'user_id', 'age', 'birthDay', 'birthMonth', 'birthYear', 'zip'], 'integer'],
         ];
     }
 

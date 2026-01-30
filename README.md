@@ -92,6 +92,7 @@ Configuration
     * `enableLink` To Enable Social Account Linking (my-profile 'settings' tab)
     * `enableRegister` To Enable Registration with Social
     * `enableServices` To list enabled services related to social accounts. By default the array contains `calendar` and `contacts`  
+    * `authorizeReferrersFromOauth2Client` To authorize referrers from oauth2_client table. By default is false (not authorized).
 
 The provider linking functionality is managed in 'My Profile', amos-admin.
 To enable social links check in admin configuraion the visibility for box social-accounts and for the the providers buttons.

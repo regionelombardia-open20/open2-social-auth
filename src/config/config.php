@@ -41,4 +41,12 @@ return [
             "includeEmail" => true
         ],
     ]*/
+    'params' => [
+        // Enable search
+        'searchParams' => [
+            'oauth2-client' => [
+                'enable' => true,
+            ]
+        ],
+    ]
 ];

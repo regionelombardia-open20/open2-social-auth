@@ -99,7 +99,6 @@ class SocialAuthUtility
                 return false;
             }
         }
-
         $accessMethod = !empty($userDatas['rawData']['saml-attribute-originedatiutente']) ? reset($userDatas['rawData']['saml-attribute-originedatiutente']) : null;
         if(is_null($accessMethod)) {
             $accessMethod = !empty($userDatas['rawData']['shib-metadata-originedatiutente']) ? reset($userDatas['rawData']['shib-metadata-originedatiutente']) : null;

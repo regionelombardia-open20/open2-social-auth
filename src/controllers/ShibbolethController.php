@@ -220,6 +220,8 @@ class ShibbolethController extends BackendController
                 $urlRedirectPersonalized = $urlRedirectPostReg;
             }
             $redirect = true;
+        } elseif (!empty($procedure['loginLink'])) {
+            $urlRedirectPersonalized = $procedure['loginLink'];
         }
 
         if (!is_array($procedure)) {
@@ -315,8 +317,12 @@ class ShibbolethController extends BackendController
         /** @var UserProfile|null $existsByFC */
         $existsByFC = null;
 
-        // Se l'origine dei dati è senza codice fiscale allora non essite nessun aggancio con codice fiscale da valutare!
-        if (!empty( $userDatas['rawData']['saml-attribute-originedatiutente']) && in_array(reset($userDatas['rawData']['saml-attribute-originedatiutente']), $this->accessMethodsWithoutCF)) {
+        // Se l'origine dei dati è senza codice fiscale allora non essite nessun aggancio con con codice fiscale da valutare!
+        $accessMethod = !empty($userDatas['rawData']['saml-attribute-originedatiutente']) ? reset($userDatas['rawData']['saml-attribute-originedatiutente']) : null;
+        if(is_null($accessMethod)) {
+            $accessMethod = !empty($userDatas['rawData']['shib-metadata-originedatiutente']) ? reset($userDatas['rawData']['shib-metadata-originedatiutente']) : null;
+        }
+        if (in_array($accessMethod, $this->accessMethodsWithoutCF)) {
             $existsByFC = false;
         } else {
             /** @var UserProfile|null $existsByFC */
@@ -380,7 +386,10 @@ class ShibbolethController extends BackendController
             //Remove session data
             \Yii::$app->session->remove('IDM');
 
-            return ['status' => 'rl'];
+            return [
+                'status' => 'rl',
+                'loginLink' => isset(Yii::$app->params['linkConfigurations']['loginLinkCommon']) ? Yii::$app->params['linkConfigurations']['loginLinkCommon'] : null
+            ];
             //return $this->redirect(['/', 'done' => 'rl']);
         } elseif ($existsByFC && $existsByFC->id && $isGuestUser) {
             if ($this->isUserDisabled($existsByFC->user_id)) {
@@ -518,7 +527,7 @@ class ShibbolethController extends BackendController
             $type = 'header_idm';
             $dataFetch = $headers;
 
-        } else if ($headers->get('saml-attribute-codicefiscale') || $headers->get('Shib-Metadata-codicefiscale')) {
+        } else if ($headers->get('saml-attribute-codicefiscale') || $headers->get('Shib-Metadata-codicefiscale') || $headers->get('saml_attribute_codicefiscale')) {
             $type = 'header_spid';
             $dataFetch = $headers;
 
@@ -573,11 +582,11 @@ class ShibbolethController extends BackendController
                     break;
                 case 'header_spid':
                 {
-                    $matricola = $dataFetch->get('saml-attribute-codicefiscale') ?: $dataFetch->get('Shib-Metadata-codicefiscale');
-                    $nome = $dataFetch->get('saml-attribute-nome') ?: $dataFetch->get('Shib-Metadata-nome');
-                    $cognome = $dataFetch->get('saml-attribute-cognome') ?: $dataFetch->get('Shib-Metadata-cognome');
-                    $emailAddress = $dataFetch->get('saml-attribute-emailaddress') ?: $dataFetch->get('Shib-Metadata-emailaddress');
-                    $codiceFiscale = $dataFetch->get('saml-attribute-codicefiscale') ?: $dataFetch->get('Shib-Metadata-codicefiscale');
+                    $matricola = $dataFetch->get('saml-attribute-codicefiscale') ?: ($dataFetch->get('Shib-Metadata-codicefiscale') ? : $dataFetch->get('saml_attribute_codicefiscale'));
+                    $nome = $dataFetch->get('saml-attribute-nome') ?: ($dataFetch->get('Shib-Metadata-nome') ? : $dataFetch->get('saml_attribute_nome'));
+                    $cognome = $dataFetch->get('saml-attribute-cognome') ?: ($dataFetch->get('Shib-Metadata-cognome')? : $dataFetch->get('saml_attribute_cognome'));
+                    $emailAddress = $dataFetch->get('saml-attribute-emailaddress') ?: ($dataFetch->get('Shib-Metadata-emailaddress')? : $dataFetch->get('saml_attribute_emailaddress'));
+                    $codiceFiscale = $dataFetch->get('saml-attribute-codicefiscale') ?: ($dataFetch->get('Shib-Metadata-codicefiscale')? : $dataFetch->get('saml_attribute_codicefiscale'));
                     $rawData = $dataFetch->toArray();
                 }
             }
