@@ -1,5 +1,6 @@
 {
     "name": "open20/amos-social-auth",
+    "license": "GPL-3.0-or-later",
     "description": "Social Auth",
     "keywords": ["amos", "auth", "social", "yii2"],
     "homepage": "https://bitbucket.org/open20/amos-social-auth",
